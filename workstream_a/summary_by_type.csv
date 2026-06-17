@@ -1,0 +1,4 @@
+request_type,requests,avg_required_units,avg_duration_hours,completed,completion_rate,revenue
+VIP,3065,18.82,17.46,629,0.205,7690144.00
+standard,7360,10.56,28.21,3412,0.464,19679424.00
+economy,9923,6.43,58.05,5985,0.603,19268436.00
