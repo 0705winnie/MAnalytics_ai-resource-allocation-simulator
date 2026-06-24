@@ -74,17 +74,19 @@ class AzureLLMClient(BaseLLMClient):
             )
 
         try:
-            from openai import AzureOpenAI
+            from openai import OpenAI
         except ImportError as e:
             raise LLMError(
                 "The 'openai' package is not installed. "
                 "Run: pip install openai"
             ) from e
 
-        self._client     = AzureOpenAI(
-            azure_endpoint=endpoint,
+        # Use base_url so the endpoint is used as-is (Azure AI Foundry
+        # inference endpoints already include the /openai/v1 path; AzureOpenAI
+        # would double it by appending /openai/deployments/... on top).
+        self._client = OpenAI(
+            base_url=endpoint,
             api_key=api_key,
-            api_version=api_version,
         )
         self._deployment = deployment
 
