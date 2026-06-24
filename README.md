@@ -28,27 +28,33 @@ Open http://localhost:5173.
 
 ## Environment
 
-Optional `.env` at the project root:
+Copy `.env.example` to `.env` and fill in your values. The `.env` file is gitignored — never commit it.
 
 ```
-OPENAI_API_KEY=sk-...        # enables real LLM responses in the Strategy chat
-OPENAI_MODEL=gpt-4o-mini     # default
-OPENAI_BASE_URL=...          # for OpenAI-compatible proxies
+# Which provider to use — "mock" works locally with no API key.
+LLM_PROVIDER=mock
+
+# Required only when LLM_PROVIDER=azure:
+AZURE_OPENAI_ENDPOINT=https://YOUR-RESOURCE-NAME.openai.azure.com/
+AZURE_OPENAI_API_KEY=your-azure-api-key-here
+AZURE_OPENAI_DEPLOYMENT=gpt-4o-mini
+AZURE_OPENAI_API_VERSION=2024-02-01
+
 VITE_API_BASE_URL=/api       # frontend → backend. /api works with the Vite proxy.
 ```
 
-Without `OPENAI_API_KEY` the `/agent/chat` endpoint returns a mock reply.
+With `LLM_PROVIDER=mock` the `/ai-assistant` endpoint returns scripted replies — no API key needed. Set `LLM_PROVIDER=azure` and fill in the `AZURE_OPENAI_*` vars to use a real model.
 
 ## Layout
 
 ```
 backend/app/
-  core/        # DES engine, GPU allocator, demand generator, SQLite storage
-  routers/     # FastAPI endpoints: telemetry, agent, simulate, results
-  services/    # OpenAI client + mock
-  schemas.py   # Pydantic request/response models
-backend/scripts/
-  seed_telemetry.py   # populates daily_demand
+  main.py               # FastAPI entry point, CORS setup, router registration
+  routers/
+    ai_assistant.py     # POST /ai-assistant — receives student message, returns AI reply
+  services/
+    llm_client.py       # Azure + Mock LLM clients; provider selected via LLM_PROVIDER
+    prompt_templates.py # System prompt builder (injects current dashboard context)
 src/
   App.tsx                              # phase switching
   components/TelemetryRoom.tsx         # Phase 1 — read the demand data

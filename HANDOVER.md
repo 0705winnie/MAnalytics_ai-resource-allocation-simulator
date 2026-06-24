@@ -184,12 +184,14 @@ Formulas live in `computeScores()` in [RadarLeaderboard.tsx](src/components/Rada
 
 ### 7.3 The AI Dispatcher chat
 
-The right half of Phase 02 is a chat panel that POSTs to `/agent/chat`. The backend logic is intentionally minimal:
+The right half of Phase 02 is a chat panel that POSTs to `/ai-assistant`. The backend logic is intentionally minimal:
 
-- If `OPENAI_API_KEY` is set → call OpenAI (`gpt-4o-mini` by default).
-- Otherwise → return the hard-coded sample reply in [llm_mock.py](backend/app/services/llm_mock.py).
+- If `LLM_PROVIDER=azure` → call Azure OpenAI via [llm_client.py](backend/app/services/llm_client.py).
+- If `LLM_PROVIDER=mock` (default) → return a scripted keyword-matched reply — no API key needed.
 
-No RAG, no function calling — just history + prompt concatenated and sent to the model.
+The active provider is read once per request via `get_llm_client()` in [llm_client.py](backend/app/services/llm_client.py). The system prompt (injecting the student's current dashboard state) is built in [prompt_templates.py](backend/app/services/prompt_templates.py).
+
+No RAG, no function calling — just history + system prompt concatenated and sent to the model.
 
 ---
 
@@ -240,7 +242,7 @@ No `.env` is required — the chat falls back to a mock reply if `OPENAI_API_KEY
 | Recommended-N range | The `n_min/n_max` math at the end of `/stats` in [telemetry.py](backend/app/routers/telemetry.py) |
 | Sandbox whitelist | `_SAFE_BUILTINS_NAMES` in [simulate.py](backend/app/routers/simulate.py) |
 | Phase order / count | `PHASES` in [App.tsx](src/App.tsx) plus `runQuarter`/`advanceQuarter` |
-| LLM provider / model | [openai_client.py](backend/app/services/openai_client.py) + the `OPENAI_*` env vars |
+| LLM provider / model | [llm_client.py](backend/app/services/llm_client.py) + `LLM_PROVIDER` / `AZURE_OPENAI_*` env vars |
 
 ---
 
