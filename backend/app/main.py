@@ -15,7 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 # Load .env from the project root (two levels above this file)
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
-from app.routers import ai_assistant  # noqa: E402 — import after dotenv load
+from app.routers import ai_assistant, simulate  # noqa: E402 — import after dotenv load
 
 app = FastAPI(
     title="Resource Allocation Simulator API",
@@ -43,6 +43,7 @@ app.add_middleware(
 )
 
 app.include_router(ai_assistant.router)
+app.include_router(simulate.router)
 
 
 @app.get("/health")
