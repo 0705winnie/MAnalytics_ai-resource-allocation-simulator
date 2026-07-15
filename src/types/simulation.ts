@@ -16,6 +16,11 @@ export interface SimulationMonthResult {
   completed_requests: number
   rejected_requests: number
   total_revenue: number
+  unfinished_requests: number
+  unfinished_value: number
+  // Keyed by cluster id; JSON object keys arrive as strings.
+  avg_utilization: Record<string, number>
+  peak_utilization: Record<string, number>
 }
 
 export interface SimulationTypeResult {
@@ -30,11 +35,14 @@ export interface SimulationResponse {
   monthly: SimulationMonthResult[]
   by_type: SimulationTypeResult[]
   total_revenue: number
+  total_unfinished_requests: number
+  total_unfinished_value: number
   warnings: string[]
 }
 
 export interface SimulateRequest {
   policy_code: string
   params: PolicyParams
-  seed?: number
+  // No `seed` field: the backend rejects it (422) and always tests policies
+  // against its own DEFAULT_SEED so every run is fair and comparable.
 }

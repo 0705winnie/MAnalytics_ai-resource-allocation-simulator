@@ -13,7 +13,7 @@ Vite's dev proxy strips /api and forwards to /simulate here.
 from typing import Dict, List
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.services.policy_sandbox import PolicyError, compile_policy
 from app.services.simulation_engine import DEFAULT_SEED, run_full_simulation
@@ -22,9 +22,15 @@ router = APIRouter(prefix="/simulate", tags=["Simulation"])
 
 
 class SimulateRequest(BaseModel):
+    # `seed` is intentionally NOT a field here: every student must be tested
+    # against the same arrival stream (DEFAULT_SEED, applied server-side in
+    # the route below) so results are fair and comparable on the leaderboard.
+    # `extra="forbid"` turns a client-supplied `seed` (or any other unknown
+    # field) into a 422 instead of silently accepting/ignoring it.
+    model_config = ConfigDict(extra="forbid")
+
     policy_code: str = Field(..., min_length=1, description="The student's admission_policy source")
     params: Dict[str, float] = Field(default_factory=dict, description="Student-tunable parameters")
-    seed: int = Field(default=DEFAULT_SEED, description="RNG seed for the synthetic arrival stream")
 
 
 class MonthResult(BaseModel):
@@ -34,6 +40,10 @@ class MonthResult(BaseModel):
     completed_requests: int
     rejected_requests: int
     total_revenue: float
+    unfinished_requests: int
+    unfinished_value: float
+    avg_utilization: Dict[int, float]
+    peak_utilization: Dict[int, float]
 
 
 class TypeResult(BaseModel):
@@ -48,6 +58,8 @@ class SimulateResponse(BaseModel):
     monthly: List[MonthResult]
     by_type: List[TypeResult]
     total_revenue: float
+    total_unfinished_requests: int
+    total_unfinished_value: float
     warnings: List[str]
 
 
@@ -58,5 +70,5 @@ async def simulate(request: SimulateRequest) -> SimulateResponse:
     except PolicyError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    result = run_full_simulation(policy_fn, request.params, seed=request.seed)
+    result = run_full_simulation(policy_fn, request.params, seed=DEFAULT_SEED)
     return SimulateResponse(**result)

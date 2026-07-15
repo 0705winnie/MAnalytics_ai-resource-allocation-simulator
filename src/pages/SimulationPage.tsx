@@ -99,7 +99,9 @@ export default function SimulationPage({
     setLoading(true)
     setError(null)
     try {
-      const res = await postSimulate({ policy_code: policyCode, params: policyParams, seed: 42 })
+      // No seed passed — the backend's DEFAULT_SEED is the single source of truth
+      // for the arrival stream all students are tested against.
+      const res = await postSimulate({ policy_code: policyCode, params: policyParams })
       onResultsChange(res)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Simulation failed')
@@ -124,6 +126,21 @@ export default function SimulationPage({
     Revenue: t.total_revenue,
     fill: TYPE_COLORS[t.type] ?? '#6b7280',
   }))
+
+  // Year-level utilization per cluster: mean of monthly averages, max of
+  // monthly peaks. Cluster ids come back as string object keys (JSON).
+  const clusterIds = results ? Object.keys(results.monthly[0]?.avg_utilization ?? {}) : []
+  const utilizationData = clusterIds.map((cid) => {
+    const avgVals = results!.monthly.map((m) => m.avg_utilization[cid] ?? 0)
+    const peakVals = results!.monthly.map((m) => m.peak_utilization[cid] ?? 0)
+    const avgPct = (avgVals.reduce((s, v) => s + v, 0) / avgVals.length) * 100
+    const peakPct = Math.max(...peakVals) * 100
+    return {
+      cluster: `Cluster ${cid}`,
+      Avg: Math.round(avgPct * 10) / 10,
+      Peak: Math.round(peakPct * 10) / 10,
+    }
+  })
 
   return (
     <div className="space-y-8">
@@ -234,7 +251,7 @@ export default function SimulationPage({
             </div>
           )}
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             <StatTile label="Total Revenue (Year)" value={`$${results.total_revenue.toLocaleString()}`} accent />
             <StatTile
               label="Total Requests"
@@ -247,6 +264,14 @@ export default function SimulationPage({
             <StatTile
               label="Completed"
               value={results.monthly.reduce((s, m) => s + m.completed_requests, 0).toLocaleString()}
+            />
+            <StatTile
+              label="Unfinished (Year)"
+              value={results.total_unfinished_requests.toLocaleString()}
+            />
+            <StatTile
+              label="Unfinished Value"
+              value={`$${results.total_unfinished_value.toLocaleString()}`}
             />
           </div>
 
@@ -303,6 +328,25 @@ export default function SimulationPage({
               </ResponsiveContainer>
             </SectionCard>
           </div>
+
+          <SectionCard title="Capacity Utilization by Cluster (Year)" label="04">
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={utilizationData} margin={{ top: 4, right: 8, left: -10, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false} />
+                <XAxis dataKey="cluster" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} />
+                <YAxis
+                  tick={{ fill: '#6b7280', fontSize: 11 }}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={(v: number) => `${v}%`}
+                />
+                <Tooltip {...TOOLTIP} formatter={(v: number) => `${v}%`} />
+                <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px', color: '#9ca3af' }} />
+                <Bar dataKey="Avg" fill="#60a5fa" radius={[2, 2, 0, 0]} />
+                <Bar dataKey="Peak" fill="#a3e635" radius={[2, 2, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </SectionCard>
         </>
       )}
 

@@ -16,7 +16,7 @@ only earns revenue if it departs before the month ends.
 from __future__ import annotations
 
 import heapq
-from typing import Callable, Dict, List
+from typing import Callable, Dict, List, Tuple
 
 import numpy as np
 
@@ -90,21 +90,45 @@ def _run_month(
     params: dict,
     history: dict,
     warnings: List[str],
-) -> List[dict]:
+) -> Tuple[List[dict], Dict[int, float], Dict[int, float]]:
     """
     Replays one month's arrivals against the policy with real capacity
-    dynamics. Returns the list of admitted jobs (each with a `completed`
-    flag and `revenue`).
+    dynamics. Returns:
+      - admitted_jobs: each with `completed`, `revenue`, and `potential_revenue`
+        (what it would have earned had it completed — used for unfinished-value
+        reporting) flags/fields.
+      - avg_utilization: {cluster_id: time-weighted average busy fraction over the month}
+      - peak_utilization: {cluster_id: peak busy fraction reached during the month}
     """
     capacity = {i: CLUSTER_CAPACITY for i in range(1, N_CLUSTERS + 1)}
+    busy_units = {i: 0 for i in range(1, N_CLUSTERS + 1)}
+    busy_unit_hours = {i: 0.0 for i in range(1, N_CLUSTERS + 1)}
+    peak_busy_units = {i: 0 for i in range(1, N_CLUSTERS + 1)}
     departures: List[tuple] = []  # heap of (departure_time, cluster_id, units)
     admitted_jobs: List[dict] = []
+    last_event_time = 0.0
+
+    def accrue(up_to_time: float) -> None:
+        # Add busy-unit-hours for the interval since the last event, at the
+        # capacity level that was true *during* that interval.
+        nonlocal last_event_time
+        dt = up_to_time - last_event_time
+        if dt > 0:
+            for c in busy_units:
+                busy_unit_hours[c] += busy_units[c] * dt
+        last_event_time = up_to_time
 
     for req in arrivals:
-        # Release capacity for anything that departed before this arrival.
+        # Release capacity for anything that departed before this arrival,
+        # accruing busy-time at each departure's own timestamp (not lumped
+        # at the arrival time) so utilization stays accurate.
         while departures and departures[0][0] <= req["arrival_time"]:
-            _, cluster_id, units = heapq.heappop(departures)
+            dep_time, cluster_id, units = heapq.heappop(departures)
+            accrue(dep_time)
             capacity[cluster_id] += units
+            busy_units[cluster_id] -= units
+
+        accrue(req["arrival_time"])
 
         request_view = {
             "type": req["type"],
@@ -134,16 +158,27 @@ def _run_month(
                     )
                 choice = 0
 
+        potential_revenue = req["required_units"] * PRICE_PER_UNIT[req["type"]]
+
         if choice == 0:
-            admitted_jobs.append({**req, "admitted": False, "completed": False, "revenue": 0})
+            admitted_jobs.append({
+                **req,
+                "admitted": False,
+                "completed": False,
+                "revenue": 0,
+                "potential_revenue": potential_revenue,
+            })
             continue
 
         capacity[choice] -= req["required_units"]
+        busy_units[choice] += req["required_units"]
+        peak_busy_units[choice] = max(peak_busy_units[choice], busy_units[choice])
+
         departure_time = req["arrival_time"] + req["duration"]
         heapq.heappush(departures, (departure_time, choice, req["required_units"]))
 
         completed = departure_time <= MONTH_HOURS
-        revenue = req["required_units"] * PRICE_PER_UNIT[req["type"]] if completed else 0
+        revenue = potential_revenue if completed else 0
 
         admitted_jobs.append({
             **req,
@@ -151,9 +186,29 @@ def _run_month(
             "cluster": choice,
             "completed": completed,
             "revenue": revenue,
+            "potential_revenue": potential_revenue,
         })
 
-    return admitted_jobs
+    # Flush departures that land before month end so busy-time accrual is
+    # accurate right up to the boundary. Anything still active past
+    # MONTH_HOURS (unfinished jobs) stays "busy" through the rest of the
+    # month for utilization purposes, then is cleaned up by the monthly
+    # reset in run_full_simulation (fresh `capacity`/`busy_units` next call).
+    while departures and departures[0][0] <= MONTH_HOURS:
+        dep_time, cluster_id, units = heapq.heappop(departures)
+        accrue(dep_time)
+        capacity[cluster_id] += units
+        busy_units[cluster_id] -= units
+    accrue(MONTH_HOURS)
+
+    avg_utilization = {
+        c: round(busy_unit_hours[c] / (CLUSTER_CAPACITY * MONTH_HOURS), 4) for c in busy_units
+    }
+    peak_utilization = {
+        c: round(peak_busy_units[c] / CLUSTER_CAPACITY, 4) for c in busy_units
+    }
+
+    return admitted_jobs, avg_utilization, peak_utilization
 
 
 def run_full_simulation(
@@ -178,13 +233,19 @@ def run_full_simulation(
     for month in range(1, SIMULATION_MONTHS + 1):
         arrivals = _generate_month_arrivals(month, rng)
         history = {"previous_months": previous_months}
-        jobs = _run_month(month, arrivals, policy_fn, params, history, warnings)
+        jobs, avg_utilization, peak_utilization = _run_month(
+            month, arrivals, policy_fn, params, history, warnings
+        )
 
         total_requests = len(jobs)
         admitted = sum(1 for j in jobs if j["admitted"])
         completed = sum(1 for j in jobs if j["completed"])
         rejected = total_requests - admitted
         revenue = sum(j["revenue"] for j in jobs)
+
+        unfinished_jobs = [j for j in jobs if j["admitted"] and not j["completed"]]
+        unfinished_requests = len(unfinished_jobs)
+        unfinished_value = sum(j["potential_revenue"] for j in unfinished_jobs)
 
         month_result = {
             "month": month,
@@ -193,6 +254,10 @@ def run_full_simulation(
             "completed_requests": completed,
             "rejected_requests": rejected,
             "total_revenue": round(revenue, 2),
+            "unfinished_requests": unfinished_requests,
+            "unfinished_value": round(unfinished_value, 2),
+            "avg_utilization": avg_utilization,
+            "peak_utilization": peak_utilization,
         }
         monthly_results.append(month_result)
         previous_months.append(month_result)
@@ -216,10 +281,14 @@ def run_full_simulation(
     ]
 
     total_revenue = round(sum(m["total_revenue"] for m in monthly_results), 2)
+    total_unfinished_requests = sum(m["unfinished_requests"] for m in monthly_results)
+    total_unfinished_value = round(sum(m["unfinished_value"] for m in monthly_results), 2)
 
     return {
         "monthly": monthly_results,
         "by_type": by_type,
         "total_revenue": total_revenue,
+        "total_unfinished_requests": total_unfinished_requests,
+        "total_unfinished_value": total_unfinished_value,
         "warnings": warnings,
     }
