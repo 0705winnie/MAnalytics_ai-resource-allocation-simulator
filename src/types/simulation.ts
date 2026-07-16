@@ -46,3 +46,25 @@ export interface SimulateRequest {
   // No `seed` field: the backend rejects it (422) and always tests policies
   // against its own DEFAULT_SEED so every run is fair and comparable.
 }
+
+// Response shape for POST /simulate/month — one month's full detail,
+// including the pieces the full-year SimulationMonthResult doesn't carry
+// (this month's own by_type breakdown, warnings, and end-of-month capacity).
+export interface MonthDetailResult extends SimulationMonthResult {
+  by_type: SimulationTypeResult[]
+  warnings: string[]
+  // Keyed by cluster id; JSON object keys arrive as strings.
+  remaining_capacity: Record<string, number>
+}
+
+export interface SimulateMonthRequest {
+  month: number
+  policy_code: string
+  params: PolicyParams
+  // Prior completed months, echoed back from earlier /simulate/month
+  // responses, so the policy's `history["previous_months"]` isn't always
+  // empty — the backend has no session storage, so the client (which
+  // already holds these) is the source of truth here.
+  previous_months: MonthDetailResult[]
+  // No `seed` field, same reasoning as SimulateRequest above.
+}

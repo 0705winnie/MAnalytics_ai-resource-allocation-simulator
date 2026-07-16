@@ -115,7 +115,7 @@ def test_unfinished_job_earns_no_completed_revenue():
         }
     ]
     warnings = []
-    jobs, _avg_util, _peak_util = _run_month(
+    jobs, _avg_util, _peak_util, remaining_capacity = _run_month(
         1, arrivals, always_cluster_one_policy, {}, {"previous_months": []}, warnings
     )
 
@@ -125,6 +125,9 @@ def test_unfinished_job_earns_no_completed_revenue():
     assert job["completed"] is False
     assert job["revenue"] == 0
     assert job["potential_revenue"] == 5 * PRICE_PER_UNIT["VIP"]
+    # The unfinished job is still "active" at month end, so its 5 units stay
+    # occupied in the end-of-month capacity snapshot too.
+    assert remaining_capacity[1] == CLUSTER_CAPACITY - 5
 
 
 # ---------------------------------------------------------------------------
@@ -155,7 +158,7 @@ def test_capacity_never_exceeds_total_even_when_policy_ignores_state():
         for t in range(4)
     ]
     warnings = []
-    jobs, _avg_util, peak_util = _run_month(
+    jobs, _avg_util, peak_util, remaining_capacity = _run_month(
         1, arrivals, always_cluster_one_policy, {}, {"previous_months": []}, warnings
     )
 
@@ -164,6 +167,8 @@ def test_capacity_never_exceeds_total_even_when_policy_ignores_state():
     )
     assert admitted_units_cluster_1 <= CLUSTER_CAPACITY
     assert peak_util[1] <= 1.0
+    # Capacity can never go negative, however the policy behaves.
+    assert remaining_capacity[1] >= 0
     # At 4 x 40 = 160 units requested against 100 units of capacity, at
     # least one request must have been auto-rejected as infeasible.
     assert len(warnings) > 0
@@ -180,7 +185,7 @@ def _single_arrival(required_units=4):
 
 def test_exception_raising_policy_is_auto_rejected_with_warning():
     warnings = []
-    jobs, _, _ = _run_month(1, _single_arrival(), raising_policy, {}, {"previous_months": []}, warnings)
+    jobs, _, _, _ = _run_month(1, _single_arrival(), raising_policy, {}, {"previous_months": []}, warnings)
 
     assert jobs[0]["admitted"] is False
     assert len(warnings) == 1
@@ -189,7 +194,7 @@ def test_exception_raising_policy_is_auto_rejected_with_warning():
 
 def test_non_int_return_is_auto_rejected_with_warning():
     warnings = []
-    jobs, _, _ = _run_month(1, _single_arrival(), non_int_return_policy, {}, {"previous_months": []}, warnings)
+    jobs, _, _, _ = _run_month(1, _single_arrival(), non_int_return_policy, {}, {"previous_months": []}, warnings)
 
     assert jobs[0]["admitted"] is False
     assert len(warnings) == 1
@@ -198,7 +203,7 @@ def test_non_int_return_is_auto_rejected_with_warning():
 
 def test_invalid_cluster_id_is_auto_rejected_with_warning():
     warnings = []
-    jobs, _, _ = _run_month(1, _single_arrival(), invalid_cluster_id_policy, {}, {"previous_months": []}, warnings)
+    jobs, _, _, _ = _run_month(1, _single_arrival(), invalid_cluster_id_policy, {}, {"previous_months": []}, warnings)
 
     assert jobs[0]["admitted"] is False
     assert len(warnings) == 1
@@ -207,7 +212,7 @@ def test_invalid_cluster_id_is_auto_rejected_with_warning():
 
 def test_infeasible_capacity_choice_is_auto_rejected_with_warning():
     warnings = []
-    jobs, _, _ = _run_month(
+    jobs, _, _, _ = _run_month(
         1,
         _single_arrival(required_units=CLUSTER_CAPACITY + 1),
         always_cluster_one_policy,

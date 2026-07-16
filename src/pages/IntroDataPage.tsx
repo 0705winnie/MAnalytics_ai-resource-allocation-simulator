@@ -4,6 +4,7 @@ import {
   Tooltip, Legend, ResponsiveContainer, Cell,
 } from 'recharts'
 import { byMonth, byType, monthlyTypeBreakdown } from '../data/historicalData'
+import type { Page } from '../components/NavBar'
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -96,7 +97,11 @@ function ChartInsight({ children }: { children: ReactNode }) {
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
-export default function IntroDataPage() {
+interface Props {
+  onNavigate: (page: Page) => void
+}
+
+export default function IntroDataPage({ onNavigate }: Props) {
   const durationData = byType.map((t) => {
     const label = t.type === 'VIP' ? 'VIP'
       : t.type.charAt(0).toUpperCase() + t.type.slice(1)
@@ -340,7 +345,11 @@ export default function IntroDataPage() {
       </div>
 
       {/* ── CTA ────────────────────────────────────────────────────────── */}
-      <div className="rounded-xl border border-hud-accent/20 bg-gradient-to-r from-blue-950/30 to-gray-900 p-6 flex items-center justify-between gap-6">
+      <button
+        type="button"
+        onClick={() => onNavigate(2)}
+        className="w-full text-left rounded-xl border border-hud-accent/20 bg-gradient-to-r from-blue-950/30 to-gray-900 p-6 flex items-center justify-between gap-6 hover:border-hud-accent/50 hover:from-blue-950/50 transition-colors cursor-pointer"
+      >
         <div>
           <p className="text-xs font-mono uppercase tracking-widest text-hud-accent mb-2">
             Next Step
@@ -357,7 +366,7 @@ export default function IntroDataPage() {
         <div className="shrink-0 text-hud-accent text-4xl font-thin opacity-50 select-none">
           →
         </div>
-      </div>
+      </button>
 
     </div>
   )

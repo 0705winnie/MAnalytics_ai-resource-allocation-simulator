@@ -6,7 +6,7 @@ import SimulationPage from './pages/SimulationPage'
 import LeaderboardPage from './pages/LeaderboardPage'
 import type { ChatMessage } from './lib/api'
 import { getOrCreateCurrentUser, loadSubmissionHistory, saveSubmissionHistory } from './lib/storage'
-import type { PolicyParams, SimulationResponse } from './types/simulation'
+import type { MonthDetailResult, PolicyParams } from './types/simulation'
 import type { CurrentUser, Submission } from './types/user'
 
 export default function App() {
@@ -19,7 +19,21 @@ export default function App() {
   const [policyParams, setPolicyParams] = useState<PolicyParams>({})
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [provider, setProvider] = useState<'azure' | 'mock' | undefined>(undefined)
-  const [simulationResults, setSimulationResults] = useState<SimulationResponse | null>(null)
+
+  // The month-by-month simulation session: completed months in order
+  // (index 0 = month 1). Lifted here for the same reason as policyCode/
+  // policyParams — both Page 2 (shows "next month" + latest result) and
+  // Page 3 (runs months, shows cumulative results) need it, and it must
+  // survive switching between them.
+  const [completedMonths, setCompletedMonths] = useState<MonthDetailResult[]>([])
+
+  function handleMonthCompleted(result: MonthDetailResult) {
+    setCompletedMonths((prev) => [...prev, result])
+  }
+
+  function handleResetSession() {
+    setCompletedMonths([])
+  }
 
   // Phase 1 simulated account (see src/lib/storage.ts) — persisted to
   // localStorage, not a real backend. currentUser is created once and never
@@ -40,7 +54,7 @@ export default function App() {
     <div className="min-h-screen bg-gray-950 text-gray-100">
       <NavBar currentPage={currentPage} onNavigate={setCurrentPage} />
       <main className="max-w-6xl mx-auto px-6 py-10">
-        {currentPage === 1 && <IntroDataPage />}
+        {currentPage === 1 && <IntroDataPage onNavigate={setCurrentPage} />}
         {currentPage === 2 && (
           <PolicyAIPage
             policyCode={policyCode}
@@ -51,15 +65,19 @@ export default function App() {
             onMessagesChange={setMessages}
             provider={provider}
             onProviderChange={setProvider}
+            onNavigate={setCurrentPage}
+            completedMonths={completedMonths}
           />
         )}
         {currentPage === 3 && (
           <SimulationPage
             policyCode={policyCode}
             policyParams={policyParams}
-            results={simulationResults}
-            onResultsChange={setSimulationResults}
+            completedMonths={completedMonths}
+            onMonthCompleted={handleMonthCompleted}
+            onResetSession={handleResetSession}
             onSaveSubmission={handleSaveSubmission}
+            onNavigate={setCurrentPage}
           />
         )}
         {currentPage === 4 && (

@@ -90,7 +90,7 @@ def _run_month(
     params: dict,
     history: dict,
     warnings: List[str],
-) -> Tuple[List[dict], Dict[int, float], Dict[int, float]]:
+) -> Tuple[List[dict], Dict[int, float], Dict[int, float], Dict[int, int]]:
     """
     Replays one month's arrivals against the policy with real capacity
     dynamics. Returns:
@@ -99,6 +99,10 @@ def _run_month(
         reporting) flags/fields.
       - avg_utilization: {cluster_id: time-weighted average busy fraction over the month}
       - peak_utilization: {cluster_id: peak busy fraction reached during the month}
+      - remaining_capacity: {cluster_id: free units at month end} — jobs still
+        active past MONTH_HOURS (unfinished) keep their units occupied here,
+        same as they do for utilization purposes; this snapshot is informational
+        only since the next month always starts with a fresh, full `capacity`.
     """
     capacity = {i: CLUSTER_CAPACITY for i in range(1, N_CLUSTERS + 1)}
     busy_units = {i: 0 for i in range(1, N_CLUSTERS + 1)}
@@ -208,7 +212,117 @@ def _run_month(
         c: round(peak_busy_units[c] / CLUSTER_CAPACITY, 4) for c in busy_units
     }
 
-    return admitted_jobs, avg_utilization, peak_utilization
+    return admitted_jobs, avg_utilization, peak_utilization, dict(capacity)
+
+
+def _aggregate_by_type(jobs: List[dict]) -> List[dict]:
+    """Per-type request/admission/completion/revenue breakdown for one month's jobs."""
+    totals: Dict[str, dict] = {
+        t: {"total_requests": 0, "admitted_requests": 0, "completed_requests": 0, "total_revenue": 0.0}
+        for t in REQUEST_TYPES
+    }
+    for j in jobs:
+        t = totals[j["type"]]
+        t["total_requests"] += 1
+        t["admitted_requests"] += 1 if j["admitted"] else 0
+        t["completed_requests"] += 1 if j["completed"] else 0
+        t["total_revenue"] += j["revenue"]
+
+    return [
+        {
+            "type": t,
+            "total_requests": v["total_requests"],
+            "admitted_requests": v["admitted_requests"],
+            "completed_requests": v["completed_requests"],
+            "total_revenue": round(v["total_revenue"], 2),
+        }
+        for t, v in totals.items()
+    ]
+
+
+def _simulate_month_from_arrivals(
+    month: int,
+    arrivals: List[dict],
+    policy_fn: Callable,
+    params: dict,
+    previous_months: List[dict] | None,
+) -> dict:
+    """
+    Shared per-month core, given an already-generated arrival stream. Both
+    `simulate_month` (single-month calls, replays arrivals from a fresh
+    seed) and `run_full_simulation` (keeps one RNG advancing continuously
+    across all 12 months, exactly as before this function was extracted)
+    funnel through here, so admission/departure/aggregation logic for "one
+    month" exists in exactly one place.
+    """
+    warnings: List[str] = []
+    history = {"previous_months": previous_months or []}
+    jobs, avg_utilization, peak_utilization, remaining_capacity = _run_month(
+        month, arrivals, policy_fn, params, history, warnings
+    )
+
+    total_requests = len(jobs)
+    admitted = sum(1 for j in jobs if j["admitted"])
+    completed = sum(1 for j in jobs if j["completed"])
+    rejected = total_requests - admitted
+    revenue = sum(j["revenue"] for j in jobs)
+
+    unfinished_jobs = [j for j in jobs if j["admitted"] and not j["completed"]]
+    unfinished_requests = len(unfinished_jobs)
+    unfinished_value = sum(j["potential_revenue"] for j in unfinished_jobs)
+
+    return {
+        "month": month,
+        "total_requests": total_requests,
+        "admitted_requests": admitted,
+        "completed_requests": completed,
+        "rejected_requests": rejected,
+        "total_revenue": round(revenue, 2),
+        "unfinished_requests": unfinished_requests,
+        "unfinished_value": round(unfinished_value, 2),
+        "avg_utilization": avg_utilization,
+        "peak_utilization": peak_utilization,
+        "remaining_capacity": remaining_capacity,
+        "by_type": _aggregate_by_type(jobs),
+        "warnings": warnings,
+    }
+
+
+def simulate_month(
+    month: int,
+    policy_fn: Callable,
+    params: dict,
+    seed: int = DEFAULT_SEED,
+    previous_months: List[dict] | None = None,
+) -> dict:
+    """
+    Runs a single simulated month (1-12) in isolation and returns its full
+    metrics: arrivals/admissions/rejections/completions, completed revenue
+    and revenue by type, unfinished requests/value, avg/peak utilization by
+    cluster, and any policy warnings raised during that month.
+
+    Monthly reset: capacity and active jobs always start fresh for the
+    month (see `_run_month`) — there is no cross-month capacity carryover,
+    the same monthly reset behavior `run_full_simulation` has always had.
+
+    Reproducibility: the arrival stream for `month` is derived from `seed`
+    (server-controlled — callers must never accept a client-supplied seed)
+    by replaying the *same* arrival-generation sequence `run_full_simulation`
+    would have produced up through `month`, discarding the earlier months'
+    draws. This makes a standalone call for month M produce results
+    identical to what a full 12-month run would have produced for month M
+    with the same seed, without requiring RNG state to be persisted across
+    stateless API calls.
+    """
+    if not 1 <= month <= SIMULATION_MONTHS:
+        raise ValueError(f"month must be between 1 and {SIMULATION_MONTHS}, got {month}")
+
+    rng = np.random.default_rng(seed)
+    for earlier_month in range(1, month):
+        _generate_month_arrivals(earlier_month, rng)  # advance RNG state; arrivals discarded
+    arrivals = _generate_month_arrivals(month, rng)
+
+    return _simulate_month_from_arrivals(month, arrivals, policy_fn, params, previous_months)
 
 
 def run_full_simulation(
@@ -219,6 +333,13 @@ def run_full_simulation(
     """
     Runs all 12 months and returns aggregated results:
       { "monthly": [...], "by_type": [...], "total_revenue": float, "warnings": [...] }
+
+    Reuses `_simulate_month_from_arrivals` — the same per-month core
+    `simulate_month` calls — for every month, so month-level logic exists in
+    one place. Unlike `simulate_month`, this keeps a single RNG advancing
+    continuously across all 12 months (rather than replaying from month 1
+    on every call) so this function's performance and output are unchanged
+    from before `simulate_month` was extracted.
     """
     rng = np.random.default_rng(seed)
     warnings: List[str] = []
@@ -232,42 +353,27 @@ def run_full_simulation(
 
     for month in range(1, SIMULATION_MONTHS + 1):
         arrivals = _generate_month_arrivals(month, rng)
-        history = {"previous_months": previous_months}
-        jobs, avg_utilization, peak_utilization = _run_month(
-            month, arrivals, policy_fn, params, history, warnings
-        )
+        month_result = _simulate_month_from_arrivals(month, arrivals, policy_fn, params, previous_months)
 
-        total_requests = len(jobs)
-        admitted = sum(1 for j in jobs if j["admitted"])
-        completed = sum(1 for j in jobs if j["completed"])
-        rejected = total_requests - admitted
-        revenue = sum(j["revenue"] for j in jobs)
+        warnings.extend(month_result["warnings"])
 
-        unfinished_jobs = [j for j in jobs if j["admitted"] and not j["completed"]]
-        unfinished_requests = len(unfinished_jobs)
-        unfinished_value = sum(j["potential_revenue"] for j in unfinished_jobs)
-
-        month_result = {
-            "month": month,
-            "total_requests": total_requests,
-            "admitted_requests": admitted,
-            "completed_requests": completed,
-            "rejected_requests": rejected,
-            "total_revenue": round(revenue, 2),
-            "unfinished_requests": unfinished_requests,
-            "unfinished_value": round(unfinished_value, 2),
-            "avg_utilization": avg_utilization,
-            "peak_utilization": peak_utilization,
+        # Public per-month shape stays exactly as before this refactor (no
+        # by_type/warnings/remaining_capacity keys — this response never
+        # exposed those per month, and adding them now would be a breaking
+        # change to /simulate's response contract).
+        public_month_result = {
+            k: v for k, v in month_result.items()
+            if k not in ("by_type", "warnings", "remaining_capacity")
         }
-        monthly_results.append(month_result)
-        previous_months.append(month_result)
+        monthly_results.append(public_month_result)
+        previous_months.append(public_month_result)
 
-        for j in jobs:
-            t = type_totals[j["type"]]
-            t["total_requests"] += 1
-            t["admitted_requests"] += 1 if j["admitted"] else 0
-            t["completed_requests"] += 1 if j["completed"] else 0
-            t["total_revenue"] += j["revenue"]
+        for type_entry in month_result["by_type"]:
+            t = type_totals[type_entry["type"]]
+            t["total_requests"] += type_entry["total_requests"]
+            t["admitted_requests"] += type_entry["admitted_requests"]
+            t["completed_requests"] += type_entry["completed_requests"]
+            t["total_revenue"] += type_entry["total_revenue"]
 
     by_type = [
         {

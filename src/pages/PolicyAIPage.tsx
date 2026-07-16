@@ -1,6 +1,10 @@
 import { useState, useRef, useEffect, type ReactNode } from 'react'
 import { postChat, type ChatMessage } from '../lib/api'
-import type { PolicyParams } from '../types/simulation'
+import type { MonthDetailResult, PolicyParams } from '../types/simulation'
+import type { Page } from '../components/NavBar'
+
+const MONTH_LABELS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+const TOTAL_MONTHS = 12
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -231,6 +235,8 @@ interface Props {
   onMessagesChange: (messages: ChatMessage[]) => void
   provider: 'azure' | 'mock' | undefined
   onProviderChange: (provider: 'azure' | 'mock' | undefined) => void
+  onNavigate: (page: Page) => void
+  completedMonths: MonthDetailResult[]
 }
 
 export default function PolicyAIPage({
@@ -242,6 +248,8 @@ export default function PolicyAIPage({
   onMessagesChange,
   provider,
   onProviderChange,
+  onNavigate,
+  completedMonths,
 }: Props) {
   const [input,   setInput]   = useState('')
   const [loading, setLoading] = useState(false)
@@ -256,6 +264,9 @@ export default function PolicyAIPage({
   const hasSignature = policyCode.includes('def admission_policy(')
   const hasReturn    = policyCode.includes('return ')
   const isValid      = hasSignature && hasReturn
+
+  const nextMonth = completedMonths.length < TOTAL_MONTHS ? completedMonths.length + 1 : null
+  const latestMonth = completedMonths.length > 0 ? completedMonths[completedMonths.length - 1] : null
 
   async function sendMessage(text: string) {
     const trimmed = text.trim()
@@ -310,8 +321,35 @@ export default function PolicyAIPage({
           admit it to a cluster or reject it. The AI assistant on the right is here to
           help you think through your logic, suggest ideas, and debug your code.
           When you are satisfied, head to{' '}
-          <strong className="text-gray-300">03 Simulation</strong> to test it.
+          <strong className="text-gray-300">03 Simulation</strong> to run the next month.
         </p>
+
+        <div className="mt-5 flex flex-wrap items-center gap-3 rounded-lg border border-gray-800 bg-gray-950/60 px-4 py-3">
+          <span className="text-xs font-mono px-2 py-0.5 rounded bg-gray-800 text-gray-500 shrink-0">
+            Session
+          </span>
+          {nextMonth !== null ? (
+            <span className="text-gray-300 text-xs">
+              Next up: <strong className="text-hud-accent">Month {nextMonth}</strong>{' '}
+              ({MONTH_LABELS[nextMonth - 1]}) — {completedMonths.length} of {TOTAL_MONTHS} months done.
+            </span>
+          ) : (
+            <span className="text-gray-300 text-xs">
+              <strong className="text-hud-positive">All 12 months complete.</strong> Revise your policy and
+              reset the session on <strong className="text-gray-300">03 Simulation</strong> to try again.
+            </span>
+          )}
+          {latestMonth && (
+            <span className="text-gray-600 text-xs border-l border-gray-800 pl-3">
+              Latest: Month {latestMonth.month} earned{' '}
+              <span className="font-mono text-gray-400">${latestMonth.total_revenue.toLocaleString()}</span>,{' '}
+              {latestMonth.rejected_requests} rejected
+              {latestMonth.warnings.length > 0 && (
+                <span className="text-amber-500"> · {latestMonth.warnings.length} warning{latestMonth.warnings.length === 1 ? '' : 's'}</span>
+              )}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* ── Two-column layout ──────────────────────────────────────────── */}
@@ -541,24 +579,28 @@ export default function PolicyAIPage({
       </div>
 
       {/* ── CTA ────────────────────────────────────────────────────────── */}
-      <div className="rounded-xl border border-hud-positive/20 bg-gradient-to-r from-lime-950/20 to-gray-900 p-6 flex items-center justify-between gap-6">
+      <button
+        type="button"
+        onClick={() => onNavigate(3)}
+        className="w-full text-left rounded-xl border border-hud-positive/20 bg-gradient-to-r from-lime-950/20 to-gray-900 p-6 flex items-center justify-between gap-6 hover:border-hud-positive/50 hover:from-lime-950/30 transition-colors cursor-pointer"
+      >
         <div>
           <p className="text-xs font-mono uppercase tracking-widest text-hud-positive mb-2">
             Next Step
           </p>
           <h3 className="text-gray-100 font-semibold text-base mb-1.5">
-            Ready to test your policy?
+            {nextMonth !== null ? `Ready to run Month ${nextMonth}?` : 'Ready to review your final results?'}
           </h3>
           <p className="text-gray-500 text-sm max-w-lg">
-            Head to <strong className="text-gray-300">03 Simulation</strong> to run
-            your policy month by month and see how much revenue it earns. You can return
-            here to refine your code between months.
+            Head to <strong className="text-gray-300">03 Simulation</strong> to run the
+            next month and see how much revenue it earns. Come back here anytime between
+            months to refine your code — completed months stay locked.
           </p>
         </div>
         <div className="shrink-0 text-hud-positive text-4xl font-thin opacity-50 select-none">
           →
         </div>
-      </div>
+      </button>
 
     </div>
   )
