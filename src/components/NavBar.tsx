@@ -14,9 +14,9 @@ const TABS: { page: Page; label: string }[] = [
 
 export default function NavBar({ currentPage, onNavigate }: Props) {
   return (
-    <header className="border-b border-gray-800 bg-gray-950">
+    <header className="border-b border-line bg-white shadow-card">
       <div className="max-w-6xl mx-auto px-6 flex items-center h-14">
-        <span className="text-xs font-mono tracking-widest text-gray-700 uppercase shrink-0 mr-10">
+        <span className="text-xs font-mono tracking-widest text-ink-faintest uppercase shrink-0 mr-10">
           Resource Allocation Simulator
         </span>
         <nav className="flex h-full">
@@ -25,10 +25,10 @@ export default function NavBar({ currentPage, onNavigate }: Props) {
               key={page}
               onClick={() => onNavigate(page)}
               className={[
-                'px-5 h-full text-sm font-medium tracking-wide border-b-2 transition-colors',
+                'px-5 h-full text-sm font-medium tracking-wide border-b-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-hud-accent/50 focus-visible:ring-inset',
                 currentPage === page
                   ? 'border-hud-accent text-hud-accent'
-                  : 'border-transparent text-gray-500 hover:text-gray-300',
+                  : 'border-transparent text-ink-faint hover:text-ink-dim',
               ].join(' ')}
             >
               {label}

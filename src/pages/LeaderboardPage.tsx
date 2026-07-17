@@ -46,14 +46,14 @@ function SectionCard({
   children: ReactNode
 }) {
   return (
-    <div className="rounded-lg border border-gray-800 bg-gray-900 p-6">
+    <div className="rounded-lg border border-line bg-white p-6 shadow-card">
       <div className="flex items-center gap-3 mb-5">
         {label && (
-          <span className="text-xs font-mono px-2 py-0.5 rounded bg-gray-800 text-gray-600 shrink-0">
+          <span className="text-xs font-mono px-2 py-0.5 rounded bg-chip text-ink-faint shrink-0">
             {label}
           </span>
         )}
-        <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-500">
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-ink-faint">
           {title}
         </h2>
       </div>
@@ -64,9 +64,9 @@ function SectionCard({
 
 function StatTile({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
-    <div className="rounded-lg border border-gray-800 bg-gray-950 px-4 py-3">
-      <div className="text-xs text-gray-600 mb-1">{label}</div>
-      <div className={`font-mono font-semibold text-sm ${accent ? 'text-hud-accent' : 'text-gray-200'}`}>
+    <div className="rounded-lg border border-line bg-well px-4 py-3">
+      <div className="text-xs text-ink-faint mb-1">{label}</div>
+      <div className={`font-mono font-semibold text-sm ${accent ? 'text-hud-accent' : 'text-ink'}`}>
         {value}
       </div>
     </div>
@@ -75,7 +75,7 @@ function StatTile({ label, value, accent }: { label: string; value: string; acce
 
 function SampleDataBanner() {
   return (
-    <p className="mb-3 text-xs text-amber-500/80 italic">
+    <p className="mb-3 text-xs text-amber-700/90 italic">
       Showing sample data — run a simulation on 03 Simulation and save it here to replace this.
     </p>
   )
@@ -139,16 +139,16 @@ export default function LeaderboardPage({ currentUser, submissionHistory }: Prop
     <div className="space-y-8">
 
       {/* ── Hero ───────────────────────────────────────────────────────── */}
-      <div className="rounded-xl border border-gray-800 bg-gradient-to-br from-gray-900 via-gray-900 to-blue-950/20 p-8">
+      <div className="rounded-xl border border-line bg-gradient-to-br from-white via-white to-hud-accent/6 p-8 shadow-card">
         <div className="flex items-center gap-2 mb-5">
-          <span className="text-xs font-mono px-2.5 py-1 rounded-full border border-gray-700 text-gray-500 tracking-widest uppercase">
+          <span className="text-xs font-mono px-2.5 py-1 rounded-full border border-line-strong text-ink-faint tracking-widest uppercase">
             04  History
           </span>
         </div>
-        <h1 className="text-2xl font-bold text-gray-100 tracking-tight mb-3">
+        <h1 className="text-2xl font-bold text-ink tracking-tight mb-3">
           Your History &amp; the Class Leaderboard
         </h1>
-        <p className="text-gray-400 leading-relaxed max-w-3xl">
+        <p className="text-ink-dim leading-relaxed max-w-3xl">
           A prototype personal record: an anonymous identifier generated for this browser, your
           saved simulation runs, and how your best run compares to a few sample classmates. This is
           a local-only Phase 1 preview — see the chat response for what a real account/leaderboard
@@ -161,16 +161,16 @@ export default function LeaderboardPage({ currentUser, submissionHistory }: Prop
         <SectionCard title="Current Student" label="Identity">
           <div className="space-y-3">
             <div>
-              <div className="text-xs text-gray-600 mb-1">Anonymous Name</div>
+              <div className="text-xs text-ink-faint mb-1">Anonymous Name</div>
               <div className="font-mono text-hud-accent font-semibold text-sm">{currentUser.anonymousName}</div>
             </div>
             <div>
-              <div className="text-xs text-gray-600 mb-1">User ID</div>
-              <div className="font-mono text-gray-500 text-xs">{currentUser.userId}</div>
+              <div className="text-xs text-ink-faint mb-1">User ID</div>
+              <div className="font-mono text-ink-faint text-xs">{currentUser.userId}</div>
             </div>
             <div>
-              <div className="text-xs text-gray-600 mb-1">Account Created</div>
-              <div className="font-mono text-gray-400 text-xs">{formatDate(currentUser.createdAt)}</div>
+              <div className="text-xs text-ink-faint mb-1">Account Created</div>
+              <div className="font-mono text-ink-dim text-xs">{formatDate(currentUser.createdAt)}</div>
             </div>
           </div>
         </SectionCard>
@@ -187,9 +187,9 @@ export default function LeaderboardPage({ currentUser, submissionHistory }: Prop
               />
             </div>
           ) : (
-            <p className="text-gray-600 text-xs leading-relaxed">
-              No saved runs yet. Go to <strong className="text-gray-400">03 Simulation</strong>, run
-              your policy, and click <strong className="text-gray-400">Save to My History</strong> to
+            <p className="text-ink-faint text-xs leading-relaxed">
+              No saved runs yet. Go to <strong className="text-ink-dim">03 Simulation</strong>, run
+              your policy, and click <strong className="text-ink-dim">Save to My History</strong> to
               start building your record.
             </p>
           )}
@@ -202,7 +202,7 @@ export default function LeaderboardPage({ currentUser, submissionHistory }: Prop
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="text-left text-gray-600 border-b border-gray-800">
+                <tr className="text-left text-ink-faint border-b border-line">
                   <th className="py-2 pr-4 font-medium">Month</th>
                   <th className="py-2 pr-4 font-medium">Requests</th>
                   <th className="py-2 pr-4 font-medium">Admitted</th>
@@ -211,22 +211,22 @@ export default function LeaderboardPage({ currentUser, submissionHistory }: Prop
                   <th className="py-2 pr-4 font-medium">Revenue</th>
                 </tr>
               </thead>
-              <tbody className="font-mono text-gray-400">
+              <tbody className="font-mono text-ink-dim">
                 {latestSubmission.monthly.map((m) => (
-                  <tr key={m.month} className="border-b border-gray-900">
+                  <tr key={m.month} className="border-b border-line">
                     <td className="py-2 pr-4">{m.month}</td>
                     <td className="py-2 pr-4">{m.total_requests}</td>
                     <td className="py-2 pr-4">{m.admitted_requests}</td>
                     <td className="py-2 pr-4">{m.completed_requests}</td>
                     <td className="py-2 pr-4">{m.rejected_requests}</td>
-                    <td className="py-2 pr-4 text-gray-200">{formatMoney(m.total_revenue)}</td>
+                    <td className="py-2 pr-4 text-ink">{formatMoney(m.total_revenue)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         ) : (
-          <p className="text-gray-600 text-xs leading-relaxed">
+          <p className="text-ink-faint text-xs leading-relaxed">
             No saved runs yet — this table will populate once you save a simulation from Page 3.
           </p>
         )}
@@ -238,17 +238,17 @@ export default function LeaderboardPage({ currentUser, submissionHistory }: Prop
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
-              <tr className="text-left text-gray-600 border-b border-gray-800">
+              <tr className="text-left text-ink-faint border-b border-line">
                 <th className="py-2 pr-4 font-medium">Saved</th>
                 <th className="py-2 pr-4 font-medium">Total Revenue</th>
                 <th className="py-2 pr-4 font-medium">Warnings</th>
               </tr>
             </thead>
-            <tbody className="font-mono text-gray-400">
+            <tbody className="font-mono text-ink-dim">
               {pastSubmissionRows.map((s) => (
-                <tr key={s.id} className="border-b border-gray-900">
+                <tr key={s.id} className="border-b border-line">
                   <td className="py-2 pr-4">{formatDate(s.timestamp)}</td>
-                  <td className="py-2 pr-4 text-gray-200">{formatMoney(s.total_revenue)}</td>
+                  <td className="py-2 pr-4 text-ink">{formatMoney(s.total_revenue)}</td>
                   <td className="py-2 pr-4">{s.warningsCount}</td>
                 </tr>
               ))}
@@ -259,14 +259,14 @@ export default function LeaderboardPage({ currentUser, submissionHistory }: Prop
 
       {/* ── Anonymous Leaderboard ─────────────────────────────────────────── */}
       <SectionCard title="Anonymous Leaderboard" label="03">
-        <p className="text-gray-500 text-xs leading-relaxed mb-4">
+        <p className="text-ink-faint text-xs leading-relaxed mb-4">
           Ranked by best single-run revenue. Classmate rows are sample data for this prototype —
           there is no shared backend yet, so only your own row reflects real saved runs.
         </p>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
-              <tr className="text-left text-gray-600 border-b border-gray-800">
+              <tr className="text-left text-ink-faint border-b border-line">
                 <th className="py-2 pr-4 font-medium">Rank</th>
                 <th className="py-2 pr-4 font-medium">Student</th>
                 <th className="py-2 pr-4 font-medium">Best Run Revenue</th>
@@ -275,11 +275,11 @@ export default function LeaderboardPage({ currentUser, submissionHistory }: Prop
                 <th className="py-2 pr-4 font-medium">Last Submission</th>
               </tr>
             </thead>
-            <tbody className="font-mono text-gray-400">
+            <tbody className="font-mono text-ink-dim">
               {leaderboardRows.map((row, i) => (
                 <tr
                   key={row.anonymousName}
-                  className={`border-b border-gray-900 ${row.isCurrentUser ? 'bg-blue-950/20 text-gray-200' : ''}`}
+                  className={`border-b border-line ${row.isCurrentUser ? 'bg-hud-accent/6 text-ink' : ''}`}
                 >
                   <td className="py-2 pr-4">{i + 1}</td>
                   <td className={`py-2 pr-4 ${row.isCurrentUser ? 'text-hud-accent font-semibold' : ''}`}>

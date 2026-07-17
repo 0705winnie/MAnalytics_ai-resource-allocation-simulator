@@ -20,17 +20,17 @@ import type { Page } from '../components/NavBar'
 const MONTH_LABELS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 const TOTAL_MONTHS = 12
 
-const TYPE_COLORS: Record<string, string> = { VIP: '#60a5fa', standard: '#a3e635', economy: '#9ca3af' }
+const TYPE_COLORS: Record<string, string> = { VIP: '#002676', standard: '#2E7D32', economy: '#8598AF' }
 
 const TOOLTIP = {
   contentStyle: {
-    backgroundColor: '#0f172a',
-    border: '1px solid #1f2937',
+    backgroundColor: '#FFFFFF',
+    border: '1px solid #DCE3EC',
     borderRadius: '6px',
     fontSize: '12px',
   },
-  labelStyle: { color: '#d1d5db', marginBottom: 4 },
-  itemStyle:  { color: '#9ca3af' },
+  labelStyle: { color: '#0F2247', marginBottom: 4 },
+  itemStyle:  { color: '#3E5872' },
 }
 
 // Compact axis ticks ($60k) vs. exact tooltip values ($60,000) — same pattern
@@ -126,14 +126,14 @@ function SectionCard({
   children: ReactNode
 }) {
   return (
-    <div className="rounded-lg border border-gray-800 bg-gray-900 p-6">
+    <div className="rounded-lg border border-line bg-white p-6 shadow-card">
       <div className="flex items-center gap-3 mb-5">
         {label && (
-          <span className="text-xs font-mono px-2 py-0.5 rounded bg-gray-800 text-gray-600 shrink-0">
+          <span className="text-xs font-mono px-2 py-0.5 rounded bg-chip text-ink-faint shrink-0">
             {label}
           </span>
         )}
-        <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-500">
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-ink-faint">
           {title}
         </h2>
       </div>
@@ -144,7 +144,7 @@ function SectionCard({
 
 function ChartInsight({ children }: { children: ReactNode }) {
   return (
-    <div className="mb-5 px-3 py-2.5 rounded border-l-2 border-hud-accent bg-blue-950/20 text-sm text-gray-400 leading-relaxed">
+    <div className="mb-5 px-3 py-2.5 rounded border-l-2 border-hud-accent bg-hud-accent/6 text-sm text-ink-dim leading-relaxed">
       <span className="text-hud-accent font-semibold text-xs uppercase tracking-wider mr-2">
         What to notice
       </span>
@@ -155,9 +155,9 @@ function ChartInsight({ children }: { children: ReactNode }) {
 
 function StatTile({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
-    <div className="rounded-lg border border-gray-800 bg-gray-950 px-4 py-3">
-      <div className="text-xs text-gray-600 mb-1">{label}</div>
-      <div className={`font-mono font-semibold text-sm ${accent ? 'text-hud-accent' : 'text-gray-200'}`}>
+    <div className="rounded-lg border border-line bg-well px-4 py-3">
+      <div className="text-xs text-ink-faint mb-1">{label}</div>
+      <div className={`font-mono font-semibold text-sm ${accent ? 'text-hud-accent' : 'text-ink'}`}>
         {value}
       </div>
     </div>
@@ -196,13 +196,14 @@ function MonthStepper({
             }
             className={[
               'flex-1 min-w-[52px] rounded border px-2 py-2 text-center transition-colors',
+              'focus:outline-none focus-visible:ring-2 focus-visible:ring-hud-accent/60',
               isCompleted
                 ? isHighlighted
-                  ? 'border-hud-accent bg-blue-950/40 text-hud-accent cursor-pointer'
-                  : 'border-lime-800/50 bg-lime-950/20 text-lime-400 hover:border-lime-600/70 cursor-pointer'
+                  ? 'border-hud-accent bg-hud-accent/10 text-hud-accent cursor-pointer'
+                  : 'border-hud-positive/50 bg-hud-positive/7 text-hud-positive hover:border-hud-positive/70 cursor-pointer'
                 : isCurrent
-                  ? 'border-hud-accent/50 bg-blue-950/20 text-hud-accent cursor-default'
-                  : 'border-gray-800 bg-gray-950 text-gray-700 cursor-not-allowed',
+                  ? 'border-hud-accent/50 bg-hud-accent/6 text-hud-accent cursor-default'
+                  : 'border-line bg-well text-ink-faintest cursor-not-allowed',
             ].join(' ')}
           >
             <div className="text-[10px] uppercase tracking-wide">{label}</div>
@@ -312,7 +313,7 @@ export default function SimulationPage({
   const byTypeData = aggregated?.by_type.map((t) => ({
     type: t.type === 'VIP' ? 'VIP' : t.type.charAt(0).toUpperCase() + t.type.slice(1),
     Revenue: t.total_revenue,
-    fill: TYPE_COLORS[t.type] ?? '#6b7280',
+    fill: TYPE_COLORS[t.type] ?? '#5B7290',
   }))
 
   // Cluster utilization across completed months so far: mean of monthly
@@ -338,21 +339,21 @@ export default function SimulationPage({
     <div className="space-y-8">
 
       {/* ── Hero ───────────────────────────────────────────────────────── */}
-      <div className="rounded-xl border border-gray-800 bg-gradient-to-br from-gray-900 via-gray-900 to-blue-950/20 p-8">
+      <div className="rounded-xl border border-line bg-gradient-to-br from-white via-white to-hud-accent/6 p-8 shadow-card">
         <div className="flex items-center gap-2 mb-5">
-          <span className="text-xs font-mono px-2.5 py-1 rounded-full border border-gray-700 text-gray-500 tracking-widest uppercase">
+          <span className="text-xs font-mono px-2.5 py-1 rounded-full border border-line-strong text-ink-faint tracking-widest uppercase">
             03  Simulation
           </span>
         </div>
-        <h1 className="text-2xl font-bold text-gray-100 tracking-tight mb-3">
+        <h1 className="text-2xl font-bold text-ink tracking-tight mb-3">
           Run Your Policy Month by Month
         </h1>
-        <p className="text-gray-400 leading-relaxed max-w-3xl">
-          Each click of <strong className="text-gray-300">Run Month</strong> tests your current{' '}
+        <p className="text-ink-dim leading-relaxed max-w-3xl">
+          Each click of <strong className="text-ink-dim">Run Month</strong> tests your current{' '}
           <span className="text-hud-accent font-medium">admission_policy</span> against that month's arrivals,
           with real capacity and departure dynamics — a job only earns revenue if it's admitted{' '}
           <em>and</em> completes before month-end. Revise your code on{' '}
-          <strong className="text-gray-300">02 Policy &amp; AI</strong> between months; completed months are
+          <strong className="text-ink-dim">02 Policy &amp; AI</strong> between months; completed months are
           locked and can't be rerun.
         </p>
       </div>
@@ -373,8 +374,8 @@ export default function SimulationPage({
             <span
               className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded border ${
                 hasSignature
-                  ? 'border-lime-800/50 bg-lime-950/30 text-lime-400'
-                  : 'border-amber-800/40 bg-amber-950/20 text-amber-500'
+                  ? 'border-hud-positive/50 bg-hud-positive/10 text-hud-positive'
+                  : 'border-amber-300 bg-amber-50 text-amber-700'
               }`}
             >
               {hasSignature ? '✓' : '!'} admission_policy defined
@@ -383,26 +384,26 @@ export default function SimulationPage({
               paramEntries.map(([k, v]) => (
                 <span
                   key={k}
-                  className="text-xs font-mono px-2 py-0.5 rounded bg-gray-800 text-gray-400"
+                  className="text-xs font-mono px-2 py-0.5 rounded bg-chip text-ink-dim"
                 >
                   {k}={v}
                 </span>
               ))
             ) : (
-              <span className="text-xs text-gray-700 italic">no parameters set</span>
+              <span className="text-xs text-ink-faintest italic">no parameters set</span>
             )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={() => onNavigate(2)}
-              className="rounded border border-gray-700 px-4 py-2 text-xs font-medium text-gray-400 hover:border-gray-500 hover:text-gray-200 transition-colors"
+              className="rounded border border-line-strong px-4 py-2 text-xs font-medium text-ink-dim hover:border-ink-faintest hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-ink-faint transition-colors"
             >
-              Revise Policy Before Next Month
+              Revise Policy
             </button>
             <button
               onClick={runMonth}
               disabled={loading || sessionComplete || !hasSignature}
-              className="rounded border border-hud-accent/30 bg-blue-950/30 px-5 py-2 text-xs font-medium text-hud-accent hover:bg-blue-950/50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              className="rounded border border-hud-gold bg-hud-gold px-5 py-2 text-xs font-semibold text-ink hover:bg-hud-gold-hover hover:border-hud-gold-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-hud-gold/70 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               {loading
                 ? 'Running…'
@@ -412,16 +413,16 @@ export default function SimulationPage({
             </button>
           </div>
         </div>
-        <pre className="bg-gray-950 border border-gray-800 rounded p-3 text-xs font-mono text-gray-500 overflow-x-auto leading-relaxed max-h-32">
+        <pre className="bg-well border border-line rounded p-3 text-xs font-mono text-ink-faint overflow-x-auto leading-relaxed max-h-32">
           {policyCode}
         </pre>
         {error && (
-          <div className="mt-3 rounded border border-red-900/40 bg-red-950/20 px-3 py-2.5 text-xs text-red-400 leading-relaxed">
+          <div className="mt-3 rounded border border-red-200 bg-red-50 px-3 py-2.5 text-xs text-red-600 leading-relaxed">
             <strong>Error:</strong> {error}
             <br />
             <span className="text-red-600">
               Is the backend running?{' '}
-              <code className="text-red-500">cd backend &amp;&amp; uvicorn app.main:app --reload</code>
+              <code className="text-red-600">cd backend &amp;&amp; uvicorn app.main:app --reload</code>
             </span>
           </div>
         )}
@@ -429,9 +430,9 @@ export default function SimulationPage({
 
       {/* ── Empty state ───────────────────────────────────────────────────── */}
       {completedMonths.length === 0 && !loading && (
-        <div className="rounded-lg border border-dashed border-gray-800 bg-gray-900/40 p-10 text-center">
-          <p className="text-gray-600 text-sm">
-            No months run yet. Click <strong className="text-gray-400">Run Month 1</strong> above
+        <div className="rounded-lg border border-dashed border-line bg-white/40 p-10 text-center">
+          <p className="text-ink-faint text-sm">
+            No months run yet. Click <strong className="text-ink-dim">Run Month 1</strong> above
             to see how your policy performs.
           </p>
         </div>
@@ -439,15 +440,15 @@ export default function SimulationPage({
 
       {/* ── Session-complete summary ─────────────────────────────────────── */}
       {sessionComplete && aggregated && (
-        <div className="rounded-xl border border-hud-positive/30 bg-gradient-to-r from-lime-950/20 to-gray-900 p-6">
+        <div className="rounded-xl border border-hud-positive/30 bg-gradient-to-r from-hud-positive/7 to-white p-6 shadow-card">
           <span className="text-xs font-mono uppercase tracking-widest text-hud-positive mb-2 block">
             Session Complete
           </span>
-          <h3 className="text-gray-100 font-semibold text-base mb-1.5">
+          <h3 className="text-ink font-semibold text-base mb-1.5">
             All 12 months finished — total revenue ${aggregated.total_revenue.toLocaleString()}
           </h3>
-          <p className="text-gray-500 text-sm max-w-2xl">
-            Save this run to your personal history on <strong className="text-gray-300">04 History</strong>,
+          <p className="text-ink-faint text-sm max-w-2xl">
+            Save this run to your personal history on <strong className="text-ink-dim">04 History</strong>,
             or reset the session below to try a different policy from Month 1.
           </p>
         </div>
@@ -455,19 +456,28 @@ export default function SimulationPage({
 
       {/* ── Latest / selected month detail ───────────────────────────────── */}
       {shownMonth && (
+        <div className="flex items-center gap-3 pt-1">
+          <span className="h-px flex-1 bg-chip" />
+          <span className="text-xs uppercase tracking-widest text-ink-faint font-semibold shrink-0">
+            This Month
+          </span>
+          <span className="h-px flex-1 bg-chip" />
+        </div>
+      )}
+      {shownMonth && (
         <SectionCard
           title={`Month ${shownMonth.month} Results (${MONTH_LABELS[shownMonth.month - 1]})`}
           label="Monthly"
         >
           {shownMonth.warnings.length > 0 && (
-            <div className="mb-4 rounded border border-amber-800/40 bg-amber-950/20 px-4 py-3 text-xs text-amber-500 leading-relaxed">
+            <div className="mb-4 rounded border border-amber-300 bg-amber-50 px-4 py-3 text-xs text-amber-700 leading-relaxed">
               <strong>{shownMonth.warnings.length} warning{shownMonth.warnings.length === 1 ? '' : 's'}</strong> during
               this month (e.g. invalid or infeasible cluster choices were auto-rejected):
-              <ul className="mt-1.5 list-disc list-inside space-y-0.5 text-amber-500/80">
+              <ul className="mt-1.5 list-disc list-inside space-y-0.5 text-amber-700/90">
                 {shownMonth.warnings.slice(0, 5).map((w, i) => <li key={i}>{w}</li>)}
               </ul>
               {shownMonth.warnings.length > 5 && (
-                <p className="mt-1 text-amber-600">…and {shownMonth.warnings.length - 5} more.</p>
+                <p className="mt-1 text-amber-700">…and {shownMonth.warnings.length - 5} more.</p>
               )}
             </div>
           )}
@@ -483,23 +493,23 @@ export default function SimulationPage({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <div className="text-xs text-gray-600 mb-2 uppercase tracking-wide">Revenue by Type</div>
+              <div className="text-xs text-ink-faint mb-2 uppercase tracking-wide">Revenue by Type</div>
               <div className="space-y-1.5">
                 {shownMonth.by_type.map((t) => (
                   <div key={t.type} className="flex items-center justify-between text-xs">
-                    <span className="text-gray-400 capitalize">{t.type}</span>
-                    <span className="font-mono text-gray-300">${t.total_revenue.toLocaleString()}</span>
+                    <span className="text-ink-dim capitalize">{t.type}</span>
+                    <span className="font-mono text-ink-dim">${t.total_revenue.toLocaleString()}</span>
                   </div>
                 ))}
               </div>
             </div>
             <div>
-              <div className="text-xs text-gray-600 mb-2 uppercase tracking-wide">Remaining Capacity (Month End)</div>
+              <div className="text-xs text-ink-faint mb-2 uppercase tracking-wide">Remaining Capacity (Month End)</div>
               <div className="space-y-1.5">
                 {Object.entries(shownMonth.remaining_capacity).map(([cid, free]) => (
                   <div key={cid} className="flex items-center justify-between text-xs">
-                    <span className="text-gray-400">Cluster {cid}</span>
-                    <span className="font-mono text-gray-300">{free} units free</span>
+                    <span className="text-ink-dim">Cluster {cid}</span>
+                    <span className="font-mono text-ink-dim">{free} units free</span>
                   </div>
                 ))}
               </div>
@@ -508,16 +518,51 @@ export default function SimulationPage({
         </SectionCard>
       )}
 
+      {/* ── Revise-for-next-month CTA ─────────────────────────────────────── */}
+      {shownMonth && !sessionComplete && nextMonth !== null && (
+        <button
+          type="button"
+          onClick={() => onNavigate(2)}
+          className="w-full text-left rounded-xl border border-hud-accent/20 bg-gradient-to-r from-hud-accent/6 to-white p-6 flex items-center justify-between gap-6 hover:border-hud-accent/50 hover:from-hud-accent/8 transition-colors cursor-pointer shadow-card focus:outline-none focus-visible:ring-2 focus-visible:ring-hud-accent/60"
+        >
+          <div>
+            <p className="text-xs font-mono uppercase tracking-widest text-hud-accent mb-2">
+              Next Step
+            </p>
+            <h3 className="text-ink font-semibold text-base mb-1.5">
+              Revise Policy for Month {nextMonth}
+            </h3>
+            <p className="text-ink-faint text-sm max-w-lg">
+              Head to <strong className="text-ink-dim">02 Policy &amp; AI</strong> to tweak your code
+              or parameters based on what you just saw — changes only affect Month {nextMonth} onward;
+              Month {shownMonth.month} and earlier stay locked.
+            </p>
+          </div>
+          <div className="shrink-0 flex items-center gap-2 rounded-lg border border-hud-gold bg-hud-gold px-4 py-2.5 text-ink text-xs font-semibold whitespace-nowrap">
+            Revise Policy
+            <span className="text-lg font-thin leading-none">→</span>
+          </div>
+        </button>
+      )}
+
       {/* ── Cumulative results ───────────────────────────────────────────── */}
       {aggregated && (
         <>
+          <div className="flex items-center gap-3 pt-1">
+            <span className="h-px flex-1 bg-chip" />
+            <span className="text-xs uppercase tracking-widest text-ink-faint font-semibold shrink-0">
+              Cumulative — {completedMonths.length} of {TOTAL_MONTHS} Months
+            </span>
+            <span className="h-px flex-1 bg-chip" />
+          </div>
+
           <div className="flex items-center justify-between gap-4">
-            <p className="text-gray-600 text-xs">
-              Save this run to your personal history on <strong className="text-gray-400">04 History</strong>.
+            <p className="text-ink-faint text-xs">
+              Save this run to your personal history on <strong className="text-ink-dim">04 History</strong>.
             </p>
             <button
               onClick={saveToHistory}
-              className="shrink-0 rounded border border-hud-positive/30 bg-lime-950/20 px-4 py-1.5 text-xs font-medium text-hud-positive hover:bg-lime-950/40 transition-colors"
+              className="shrink-0 rounded border border-hud-positive/30 bg-hud-positive/7 px-4 py-1.5 text-xs font-medium text-hud-positive hover:bg-hud-positive/14 focus:outline-none focus-visible:ring-2 focus-visible:ring-hud-positive/60 transition-colors"
             >
               {justSaved ? 'Saved ✓' : 'Save to My History'}
             </button>
@@ -554,16 +599,16 @@ export default function SimulationPage({
           <SectionCard title="Monthly Revenue" label="01">
             <ResponsiveContainer width="100%" height={240}>
               <BarChart data={revenueData} margin={{ top: 4, right: 8, left: -10, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#DCE3EC" vertical={false} />
                 <XAxis
                   dataKey="month"
                   tickFormatter={(m: number) => MONTH_LABELS[m - 1]}
-                  tick={{ fill: '#6b7280', fontSize: 11 }}
+                  tick={{ fill: '#5B7290', fontSize: 11 }}
                   axisLine={false}
                   tickLine={false}
                 />
                 <YAxis
-                  tick={{ fill: '#6b7280', fontSize: 11 }}
+                  tick={{ fill: '#5B7290', fontSize: 11 }}
                   axisLine={false}
                   tickLine={false}
                   tickFormatter={formatCurrencyTick}
@@ -573,7 +618,7 @@ export default function SimulationPage({
                   labelFormatter={(m: number) => MONTH_LABELS[m - 1]}
                   formatter={formatCurrencyExact}
                 />
-                <Bar dataKey="Revenue" fill="#60a5fa" radius={[3, 3, 0, 0]} />
+                <Bar dataKey="Revenue" fill="#002676" radius={[3, 3, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </SectionCard>
@@ -582,19 +627,19 @@ export default function SimulationPage({
             <SectionCard title="Admitted vs. Rejected by Month" label="02">
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={admitVsRejectData} margin={{ top: 4, right: 8, left: -10, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#DCE3EC" vertical={false} />
                   <XAxis
                     dataKey="month"
                     tickFormatter={(m: number) => MONTH_LABELS[m - 1]}
-                    tick={{ fill: '#6b7280', fontSize: 11 }}
+                    tick={{ fill: '#5B7290', fontSize: 11 }}
                     axisLine={false}
                     tickLine={false}
                   />
-                  <YAxis tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: '#5B7290', fontSize: 11 }} axisLine={false} tickLine={false} />
                   <Tooltip {...TOOLTIP} labelFormatter={(m: number) => MONTH_LABELS[m - 1]} />
-                  <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px', color: '#9ca3af' }} />
-                  <Bar dataKey="Admitted" fill="#a3e635" radius={[2, 2, 0, 0]} />
-                  <Bar dataKey="Rejected" fill="#f87171" radius={[2, 2, 0, 0]} />
+                  <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px', color: '#3E5872' }} />
+                  <Bar dataKey="Admitted" fill="#2E7D32" radius={[2, 2, 0, 0]} />
+                  <Bar dataKey="Rejected" fill="#DC2626" radius={[2, 2, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </SectionCard>
@@ -602,10 +647,10 @@ export default function SimulationPage({
             <SectionCard title="Revenue by Request Type" label="03">
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={byTypeData} margin={{ top: 4, right: 8, left: -10, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false} />
-                  <XAxis dataKey="type" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#DCE3EC" vertical={false} />
+                  <XAxis dataKey="type" tick={{ fill: '#5B7290', fontSize: 11 }} axisLine={false} tickLine={false} />
                   <YAxis
-                    tick={{ fill: '#6b7280', fontSize: 11 }}
+                    tick={{ fill: '#5B7290', fontSize: 11 }}
                     axisLine={false}
                     tickLine={false}
                     tickFormatter={formatCurrencyTick}
@@ -630,18 +675,18 @@ export default function SimulationPage({
             )}
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={utilizationData} margin={{ top: 4, right: 8, left: -10, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false} />
-                <XAxis dataKey="cluster" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#DCE3EC" vertical={false} />
+                <XAxis dataKey="cluster" tick={{ fill: '#5B7290', fontSize: 11 }} axisLine={false} tickLine={false} />
                 <YAxis
-                  tick={{ fill: '#6b7280', fontSize: 11 }}
+                  tick={{ fill: '#5B7290', fontSize: 11 }}
                   axisLine={false}
                   tickLine={false}
                   tickFormatter={(v: number) => `${v}%`}
                 />
                 <Tooltip {...TOOLTIP} formatter={(v: number) => `${v}%`} />
-                <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px', color: '#9ca3af' }} />
-                <Bar dataKey="Avg" fill="#60a5fa" radius={[2, 2, 0, 0]} />
-                <Bar dataKey="Peak" fill="#a3e635" radius={[2, 2, 0, 0]} />
+                <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px', color: '#3E5872' }} />
+                <Bar dataKey="Avg" fill="#002676" radius={[2, 2, 0, 0]} />
+                <Bar dataKey="Peak" fill="#FDB515" radius={[2, 2, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </SectionCard>
@@ -650,7 +695,7 @@ export default function SimulationPage({
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="text-left text-gray-600 border-b border-gray-800">
+                  <tr className="text-left text-ink-faint border-b border-line">
                     <th className="py-2 pr-4 font-medium">Month</th>
                     <th className="py-2 pr-4 font-medium">Arrivals</th>
                     <th className="py-2 pr-4 font-medium">Admitted</th>
@@ -661,22 +706,22 @@ export default function SimulationPage({
                     <th className="py-2 pr-4 font-medium">Warnings</th>
                   </tr>
                 </thead>
-                <tbody className="font-mono text-gray-400">
+                <tbody className="font-mono text-ink-dim">
                   {completedMonths.map((m) => (
                     <tr
                       key={m.month}
                       onClick={() => setHighlightedMonth(m.month)}
-                      className={`border-b border-gray-900 cursor-pointer hover:bg-gray-800/40 ${
-                        m.month === highlightedMonth ? 'bg-blue-950/30' : ''
+                      className={`border-b border-line cursor-pointer hover:bg-chip/40 ${
+                        m.month === highlightedMonth ? 'bg-hud-accent/8' : ''
                       }`}
                     >
-                      <td className="py-2 pr-4 text-gray-300">{MONTH_LABELS[m.month - 1]}</td>
+                      <td className="py-2 pr-4 text-ink-dim">{MONTH_LABELS[m.month - 1]}</td>
                       <td className="py-2 pr-4">{m.total_requests}</td>
                       <td className="py-2 pr-4">{m.admitted_requests}</td>
                       <td className="py-2 pr-4">{m.rejected_requests}</td>
                       <td className="py-2 pr-4">{m.completed_requests}</td>
                       <td className="py-2 pr-4">{m.unfinished_requests}</td>
-                      <td className="py-2 pr-4 text-gray-200">${m.total_revenue.toLocaleString()}</td>
+                      <td className="py-2 pr-4 text-ink">${m.total_revenue.toLocaleString()}</td>
                       <td className="py-2 pr-4">{m.warnings.length > 0 ? m.warnings.length : '—'}</td>
                     </tr>
                   ))}
@@ -692,7 +737,7 @@ export default function SimulationPage({
         <div className="flex justify-end">
           <button
             onClick={resetSession}
-            className="text-xs text-gray-700 hover:text-red-400 border border-gray-800 hover:border-red-900/40 rounded px-3 py-1.5 transition-colors"
+            className="text-xs text-ink-faintest hover:text-red-600 border border-line hover:border-red-200 rounded px-3 py-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/60 transition-colors"
           >
             Reset Session (discard all months)
           </button>

@@ -51,7 +51,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100">
+    <div className="min-h-screen bg-paper text-ink">
       <NavBar currentPage={currentPage} onNavigate={setCurrentPage} />
       <main className="max-w-6xl mx-auto px-6 py-10">
         {currentPage === 1 && <IntroDataPage onNavigate={setCurrentPage} />}

@@ -62,14 +62,14 @@ function SectionCard({
   children: ReactNode
 }) {
   return (
-    <div className="rounded-lg border border-gray-800 bg-gray-900 p-5">
+    <div className="rounded-lg border border-line bg-white p-5 shadow-card">
       <div className="flex items-center gap-3 mb-4">
         {label && (
-          <span className="text-xs font-mono px-2 py-0.5 rounded bg-gray-800 text-gray-600 shrink-0">
+          <span className="text-xs font-mono px-2 py-0.5 rounded bg-chip text-ink-faint shrink-0">
             {label}
           </span>
         )}
-        <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-500">
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-ink-faint">
           {title}
         </h2>
       </div>
@@ -83,8 +83,8 @@ function ValidationBadge({ ok, label }: { ok: boolean; label: string }) {
     <span
       className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded border ${
         ok
-          ? 'border-lime-800/50 bg-lime-950/30 text-lime-400'
-          : 'border-amber-800/40 bg-amber-950/20 text-amber-500'
+          ? 'border-hud-positive/50 bg-hud-positive/10 text-hud-positive'
+          : 'border-amber-300 bg-amber-50 text-amber-700'
       }`}
     >
       {ok ? '✓' : '!'}  {label}
@@ -98,8 +98,8 @@ function ProviderBadge({ provider }: { provider: 'azure' | 'mock' | undefined })
     <span
       className={`text-xs font-mono px-2 py-0.5 rounded ${
         provider === 'azure'
-          ? 'bg-blue-950/70 text-blue-400'
-          : 'bg-gray-800 text-gray-500'
+          ? 'bg-hud-accent/12 text-hud-accent'
+          : 'bg-chip text-ink-faint'
       }`}
     >
       {provider}
@@ -117,7 +117,7 @@ function MessageContent({ content }: { content: string }) {
           return (
             <pre
               key={i}
-              className="bg-gray-950 border border-gray-800 rounded p-3 text-xs font-mono text-gray-300 overflow-x-auto whitespace-pre-wrap"
+              className="bg-well border border-line rounded p-3 text-xs font-mono text-ink-dim overflow-x-auto whitespace-pre-wrap"
             >
               {code}
             </pre>
@@ -125,10 +125,10 @@ function MessageContent({ content }: { content: string }) {
         }
         // Render text with **bold** and preserved newlines
         return (
-          <div key={i} className="text-gray-400 whitespace-pre-wrap">
+          <div key={i} className="text-ink-dim whitespace-pre-wrap">
             {part.split(/(\*\*[^*\n]+\*\*)/g).map((seg, j) =>
               seg.startsWith('**') && seg.endsWith('**') ? (
-                <strong key={j} className="text-gray-200 font-medium">
+                <strong key={j} className="text-ink font-medium">
                   {seg.slice(2, -2)}
                 </strong>
               ) : (
@@ -182,10 +182,10 @@ function ParamsEditor({
 
   return (
     <div>
-      <p className="text-gray-500 text-xs leading-relaxed mb-3">
+      <p className="text-ink-faint text-xs leading-relaxed mb-3">
         These key/value pairs are passed into your policy as the <code className="text-hud-accent">params</code> dict —
         use them for thresholds or multipliers you want to tune without editing code. They carry over
-        into <strong className="text-gray-300">03 Simulation</strong> automatically.
+        into <strong className="text-ink-dim">03 Simulation</strong> automatically.
       </p>
       <div className="space-y-2">
         {entries.map(([key, value]) => (
@@ -193,17 +193,17 @@ function ParamsEditor({
             <input
               defaultValue={key}
               onBlur={(e) => updateKey(key, e.target.value.trim())}
-              className="flex-1 rounded border border-gray-800 bg-gray-950 px-2.5 py-1.5 text-xs font-mono text-gray-300 focus:outline-none focus:border-hud-accent/50"
+              className="flex-1 rounded border border-line bg-well px-2.5 py-1.5 text-xs font-mono text-ink-dim focus:outline-none focus:border-hud-accent/50"
             />
             <input
               type="number"
               value={value}
               onChange={(e) => updateValue(key, e.target.value)}
-              className="w-28 rounded border border-gray-800 bg-gray-950 px-2.5 py-1.5 text-xs font-mono text-gray-300 focus:outline-none focus:border-hud-accent/50"
+              className="w-28 rounded border border-line bg-well px-2.5 py-1.5 text-xs font-mono text-ink-dim focus:outline-none focus:border-hud-accent/50"
             />
             <button
               onClick={() => removeParam(key)}
-              className="shrink-0 text-gray-700 hover:text-red-400 text-xs px-1.5 transition-colors"
+              className="shrink-0 text-ink-faintest hover:text-red-600 text-xs px-1.5 transition-colors"
               aria-label={`Remove ${key}`}
             >
               ✕
@@ -211,12 +211,12 @@ function ParamsEditor({
           </div>
         ))}
         {entries.length === 0 && (
-          <p className="text-gray-700 text-xs italic">No parameters yet — add one below.</p>
+          <p className="text-ink-faintest text-xs italic">No parameters yet — add one below.</p>
         )}
       </div>
       <button
         onClick={addParam}
-        className="mt-3 text-xs text-gray-600 hover:text-hud-accent border border-gray-800 hover:border-hud-accent/40 rounded px-2.5 py-1 transition-colors"
+        className="mt-3 text-xs text-ink-faint hover:text-hud-accent border border-line hover:border-hud-accent/40 rounded px-2.5 py-1 transition-colors"
       >
         + Add parameter
       </button>
@@ -307,47 +307,67 @@ export default function PolicyAIPage({
     <div className="space-y-6">
 
       {/* ── Hero ───────────────────────────────────────────────────────── */}
-      <div className="rounded-xl border border-gray-800 bg-gradient-to-br from-gray-900 via-gray-900 to-lime-950/10 p-7">
+      <div className="rounded-xl border border-line bg-gradient-to-br from-white via-white to-hud-positive/5 p-7 shadow-card">
         <div className="flex items-center gap-2 mb-4">
-          <span className="text-xs font-mono px-2.5 py-1 rounded-full border border-gray-700 text-gray-500 tracking-widest uppercase">
+          <span className="text-xs font-mono px-2.5 py-1 rounded-full border border-line-strong text-ink-faint tracking-widest uppercase">
             02  Policy &amp; AI
           </span>
         </div>
-        <h1 className="text-xl font-bold text-gray-100 tracking-tight mb-2">
+        <h1 className="text-xl font-bold text-ink tracking-tight mb-2">
           Design Your Admission Policy
         </h1>
-        <p className="text-gray-400 text-sm leading-relaxed max-w-3xl">
+        <p className="text-ink-dim text-sm leading-relaxed max-w-3xl">
           Write a Python function that decides — for every arriving request — whether to
           admit it to a cluster or reject it. The AI assistant on the right is here to
           help you think through your logic, suggest ideas, and debug your code.
           When you are satisfied, head to{' '}
-          <strong className="text-gray-300">03 Simulation</strong> to run the next month.
+          <strong className="text-ink-dim">03 Simulation</strong> to run the next month.
         </p>
 
-        <div className="mt-5 flex flex-wrap items-center gap-3 rounded-lg border border-gray-800 bg-gray-950/60 px-4 py-3">
-          <span className="text-xs font-mono px-2 py-0.5 rounded bg-gray-800 text-gray-500 shrink-0">
-            Session
-          </span>
-          {nextMonth !== null ? (
-            <span className="text-gray-300 text-xs">
-              Next up: <strong className="text-hud-accent">Month {nextMonth}</strong>{' '}
-              ({MONTH_LABELS[nextMonth - 1]}) — {completedMonths.length} of {TOTAL_MONTHS} months done.
+        <div className="mt-5 rounded-lg border border-line bg-well/60 px-4 py-3 space-y-2.5">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-xs font-mono px-2 py-0.5 rounded bg-chip text-ink-faint shrink-0">
+              Session
             </span>
-          ) : (
-            <span className="text-gray-300 text-xs">
-              <strong className="text-hud-positive">All 12 months complete.</strong> Revise your policy and
-              reset the session on <strong className="text-gray-300">03 Simulation</strong> to try again.
-            </span>
-          )}
+            {nextMonth !== null ? (
+              <span className="text-ink-dim text-xs">
+                Next up: <strong className="text-hud-accent">Month {nextMonth}</strong>{' '}
+                ({MONTH_LABELS[nextMonth - 1]}) — {completedMonths.length} of {TOTAL_MONTHS} months done.
+              </span>
+            ) : (
+              <span className="text-ink-dim text-xs">
+                <strong className="text-hud-positive">All 12 months complete.</strong> Revise your policy and
+                reset the session on <strong className="text-ink-dim">03 Simulation</strong> to try again.
+              </span>
+            )}
+          </div>
+
           {latestMonth && (
-            <span className="text-gray-600 text-xs border-l border-gray-800 pl-3">
-              Latest: Month {latestMonth.month} earned{' '}
-              <span className="font-mono text-gray-400">${latestMonth.total_revenue.toLocaleString()}</span>,{' '}
-              {latestMonth.rejected_requests} rejected
+            <div className="flex flex-wrap items-center gap-2 border-t border-line pt-2.5">
+              <span className="text-ink-faint text-xs shrink-0">
+                Latest — Month {latestMonth.month} ({MONTH_LABELS[latestMonth.month - 1]}):
+              </span>
+              <span className="text-xs font-mono px-2 py-0.5 rounded bg-chip text-ink-dim">
+                ${latestMonth.total_revenue.toLocaleString()} revenue
+              </span>
+              <span className="text-xs font-mono px-2 py-0.5 rounded bg-chip text-ink-dim">
+                {latestMonth.rejected_requests} rejected
+              </span>
               {latestMonth.warnings.length > 0 && (
-                <span className="text-amber-500"> · {latestMonth.warnings.length} warning{latestMonth.warnings.length === 1 ? '' : 's'}</span>
+                <span className="text-xs font-mono px-2 py-0.5 rounded bg-amber-50 text-amber-700">
+                  {latestMonth.warnings.length} warning{latestMonth.warnings.length === 1 ? '' : 's'}
+                </span>
               )}
-            </span>
+            </div>
+          )}
+
+          {completedMonths.length > 0 && nextMonth !== null && (
+            <p className="text-ink-faint text-xs border-t border-line pt-2.5">
+              Edits below only take effect on <strong className="text-ink-dim">Month {nextMonth}</strong>{' '}
+              and later —{' '}
+              {completedMonths.length === 1 ? 'Month 1 is' : `Months 1–${completedMonths.length} are`}{' '}
+              already locked in and won't be recalculated.
+            </p>
           )}
         </div>
       </div>
@@ -360,23 +380,23 @@ export default function PolicyAIPage({
 
           {/* Interface specification */}
           <SectionCard title="Policy Interface" label="Contract">
-            <p className="text-gray-500 text-xs leading-relaxed mb-4">
+            <p className="text-ink-faint text-xs leading-relaxed mb-4">
               Your function is called once per arriving request. It must return an integer
               cluster id (1, 2, or 3) to admit the request, or 0 to reject it. If you
               return an infeasible cluster id (not enough capacity), the simulator
               auto-rejects and logs a warning.
             </p>
-            <pre className="bg-gray-950 border border-gray-800 rounded p-4 text-xs font-mono text-gray-400 overflow-x-auto leading-relaxed mb-4">
+            <pre className="bg-well border border-line rounded p-4 text-xs font-mono text-ink-dim overflow-x-auto leading-relaxed mb-4">
               {INTERFACE_SPEC}
             </pre>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {INPUT_FIELDS.map(({ key, val }) => (
                 <div
                   key={key}
-                  className="rounded border border-gray-800 bg-gray-950 px-3 py-2"
+                  className="rounded border border-line bg-well px-3 py-2"
                 >
                   <div className="font-mono text-hud-accent text-xs">{key}</div>
-                  <div className="text-gray-600 text-xs mt-0.5">{val}</div>
+                  <div className="text-ink-faint text-xs mt-0.5">{val}</div>
                 </div>
               ))}
             </div>
@@ -385,19 +405,19 @@ export default function PolicyAIPage({
           {/* Policy editor */}
           <SectionCard title="Your Policy" label="Editor">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-gray-500 text-xs">
+              <p className="text-ink-faint text-xs">
                 The template shows a greedy first-fit baseline. Edit it or replace it
                 entirely.
               </p>
               <button
                 onClick={shareCode}
-                className="shrink-0 text-xs text-gray-600 hover:text-hud-accent border border-gray-800 hover:border-hud-accent/40 rounded px-2.5 py-1 transition-colors ml-3"
+                className="shrink-0 text-xs text-ink-faint hover:text-hud-accent border border-line hover:border-hud-accent/40 rounded px-2.5 py-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-hud-accent/60 transition-colors ml-3"
               >
                 Ask AI to review ↗
               </button>
             </div>
             <textarea
-              className="w-full rounded border border-gray-700 bg-gray-950 p-4 font-mono text-xs text-gray-300 leading-relaxed resize-y focus:outline-none focus:border-hud-accent/50 transition-colors"
+              className="w-full rounded border border-line-strong bg-well p-4 font-mono text-xs text-ink-dim leading-relaxed resize-y focus:outline-none focus:border-hud-accent/50 transition-colors"
               rows={18}
               value={policyCode}
               onChange={(e) => onPolicyCodeChange(e.target.value)}
@@ -407,7 +427,7 @@ export default function PolicyAIPage({
               <ValidationBadge ok={hasSignature} label="def admission_policy(...) present" />
               <ValidationBadge ok={hasReturn}    label="return statement present" />
               {isValid && (
-                <span className="text-xs text-lime-400/60 ml-auto">
+                <span className="text-xs text-hud-positive/60 ml-auto">
                   Looks good — ready to simulate
                 </span>
               )}
@@ -426,12 +446,12 @@ export default function PolicyAIPage({
                 <li key={text} className="flex gap-2.5 text-xs">
                   <span
                     className={`shrink-0 mt-px ${
-                      done ? 'text-lime-400' : 'text-gray-700'
+                      done ? 'text-hud-positive' : 'text-ink-faintest'
                     }`}
                   >
                     {done ? '✓' : '○'}
                   </span>
-                  <span className={done ? 'text-lime-400/70' : 'text-gray-500'}>
+                  <span className={done ? 'text-hud-positive/70' : 'text-ink-faint'}>
                     {text}
                   </span>
                 </li>
@@ -443,16 +463,16 @@ export default function PolicyAIPage({
 
         {/* ── Right: AI assistant (sticky) ─────────────────────────────── */}
         <div
-          className="sticky top-6 rounded-lg border border-gray-800 bg-gray-900 flex flex-col"
+          className="sticky top-6 rounded-lg border border-line bg-white shadow-card flex flex-col"
           style={{ height: 'calc(100vh - 6rem)', minHeight: '540px' }}
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-800 shrink-0">
+          <div className="flex items-center justify-between px-5 py-3.5 border-b border-line shrink-0">
             <div>
-              <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-500">
+              <h2 className="text-xs font-semibold uppercase tracking-widest text-ink-faint">
                 AI Assistant
               </h2>
-              <p className="text-gray-700 text-xs mt-0.5">
+              <p className="text-ink-faintest text-xs mt-0.5">
                 Ask about your policy, data patterns, or trade-offs.
               </p>
             </div>
@@ -463,7 +483,7 @@ export default function PolicyAIPage({
           <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4 min-h-0">
             {messages.length === 0 && (
               <div className="py-6">
-                <p className="text-gray-700 text-xs mb-4 text-center">
+                <p className="text-ink-faintest text-xs mb-4 text-center">
                   No messages yet. Try a suggested prompt or ask anything.
                 </p>
                 <div className="space-y-2">
@@ -472,7 +492,7 @@ export default function PolicyAIPage({
                       key={p}
                       onClick={() => sendMessage(p)}
                       disabled={loading}
-                      className="w-full text-left text-xs text-gray-600 border border-gray-800 rounded px-3 py-2.5 hover:border-gray-600 hover:text-gray-300 disabled:opacity-40 transition-colors"
+                      className="w-full text-left text-xs text-ink-faint border border-line rounded px-3 py-2.5 hover:border-line-strong hover:text-ink-dim disabled:opacity-40 transition-colors"
                     >
                       {p}
                     </button>
@@ -488,20 +508,20 @@ export default function PolicyAIPage({
                   msg.role === 'user' ? 'items-end' : 'items-start'
                 }`}
               >
-                <span className="text-xs text-gray-700 px-1">
+                <span className="text-xs text-ink-faintest px-1">
                   {msg.role === 'user' ? 'You' : 'Assistant'}
                 </span>
                 <div
                   className={`rounded-lg px-4 py-3 max-w-[94%] ${
                     msg.role === 'user'
-                      ? 'bg-blue-950/50 border border-blue-900/40 text-sm text-gray-300'
-                      : 'bg-gray-800/50 border border-gray-700/40'
+                      ? 'bg-hud-accent/12 border border-hud-accent/20 text-sm text-ink-dim'
+                      : 'bg-chip/50 border border-line-strong/40'
                   }`}
                 >
                   {msg.role === 'assistant' ? (
                     <MessageContent content={msg.content} />
                   ) : (
-                    <p className="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap">
+                    <p className="text-sm text-ink-dim leading-relaxed whitespace-pre-wrap">
                       {msg.content}
                     </p>
                   )}
@@ -511,12 +531,12 @@ export default function PolicyAIPage({
 
             {loading && (
               <div className="flex items-start">
-                <div className="rounded-lg px-4 py-3 bg-gray-800/50 border border-gray-700/40">
+                <div className="rounded-lg px-4 py-3 bg-chip/50 border border-line-strong/40">
                   <div className="flex gap-1 items-center h-4">
                     {[0, 150, 300].map((delay) => (
                       <span
                         key={delay}
-                        className="w-1.5 h-1.5 rounded-full bg-gray-500 animate-bounce"
+                        className="w-1.5 h-1.5 rounded-full bg-ink-faint animate-bounce"
                         style={{ animationDelay: `${delay}ms` }}
                       />
                     ))}
@@ -526,12 +546,12 @@ export default function PolicyAIPage({
             )}
 
             {error && (
-              <div className="rounded border border-red-900/40 bg-red-950/20 px-3 py-2.5 text-xs text-red-400 leading-relaxed">
+              <div className="rounded border border-red-200 bg-red-50 px-3 py-2.5 text-xs text-red-600 leading-relaxed">
                 <strong>Error:</strong> {error}
                 <br />
                 <span className="text-red-600">
                   Is the backend running?{' '}
-                  <code className="text-red-500">
+                  <code className="text-red-600">
                     cd backend &amp;&amp; uvicorn app.main:app --reload
                   </code>
                 </span>
@@ -542,11 +562,11 @@ export default function PolicyAIPage({
           </div>
 
           {/* Input */}
-          <div className="px-4 pb-4 pt-3 border-t border-gray-800 shrink-0">
+          <div className="px-4 pb-4 pt-3 border-t border-line shrink-0">
             <div className="flex gap-2 items-end">
               <textarea
                 rows={2}
-                className="flex-1 rounded border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-gray-300 resize-none focus:outline-none focus:border-hud-accent/50 transition-colors leading-relaxed placeholder:text-gray-700"
+                className="flex-1 rounded border border-line-strong bg-well px-3 py-2 text-sm text-ink-dim resize-none focus:outline-none focus:border-hud-accent/50 transition-colors leading-relaxed placeholder:text-ink-faintest"
                 placeholder="Ask a question… (Enter to send, Shift+Enter for newline)"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
@@ -556,7 +576,7 @@ export default function PolicyAIPage({
               <button
                 onClick={() => sendMessage(input)}
                 disabled={loading || !input.trim()}
-                className="rounded border border-hud-accent/30 bg-blue-950/30 px-4 py-2 text-xs font-medium text-hud-accent hover:bg-blue-950/50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors shrink-0 self-end"
+                className="rounded border border-hud-accent/30 bg-hud-accent/8 px-4 py-2 text-xs font-medium text-hud-accent hover:bg-hud-accent/12 focus:outline-none focus-visible:ring-2 focus-visible:ring-hud-accent/60 disabled:opacity-30 disabled:cursor-not-allowed transition-colors shrink-0 self-end"
               >
                 Send
               </button>
@@ -568,7 +588,7 @@ export default function PolicyAIPage({
                   onProviderChange(undefined)
                   setError(null)
                 }}
-                className="mt-2 text-xs text-gray-700 hover:text-gray-500 transition-colors"
+                className="mt-2 text-xs text-ink-faintest hover:text-ink-faint transition-colors"
               >
                 Clear conversation
               </button>
@@ -582,23 +602,26 @@ export default function PolicyAIPage({
       <button
         type="button"
         onClick={() => onNavigate(3)}
-        className="w-full text-left rounded-xl border border-hud-positive/20 bg-gradient-to-r from-lime-950/20 to-gray-900 p-6 flex items-center justify-between gap-6 hover:border-hud-positive/50 hover:from-lime-950/30 transition-colors cursor-pointer"
+        className="w-full text-left rounded-xl border border-hud-accent/20 bg-gradient-to-r from-hud-accent/6 to-white p-6 flex items-center justify-between gap-6 hover:border-hud-accent/40 hover:from-hud-accent/9 transition-colors cursor-pointer shadow-card focus:outline-none focus-visible:ring-2 focus-visible:ring-hud-accent/50"
       >
         <div>
-          <p className="text-xs font-mono uppercase tracking-widest text-hud-positive mb-2">
+          <p className="text-xs font-mono uppercase tracking-widest text-hud-accent mb-2">
             Next Step
           </p>
-          <h3 className="text-gray-100 font-semibold text-base mb-1.5">
-            {nextMonth !== null ? `Ready to run Month ${nextMonth}?` : 'Ready to review your final results?'}
+          <h3 className="text-ink font-semibold text-base mb-1.5">
+            {nextMonth !== null
+              ? `Run Month ${nextMonth} (${MONTH_LABELS[nextMonth - 1]})`
+              : 'Review Your Final Results'}
           </h3>
-          <p className="text-gray-500 text-sm max-w-lg">
-            Head to <strong className="text-gray-300">03 Simulation</strong> to run the
+          <p className="text-ink-faint text-sm max-w-lg">
+            Head to <strong className="text-ink-dim">03 Simulation</strong> to run the
             next month and see how much revenue it earns. Come back here anytime between
             months to refine your code — completed months stay locked.
           </p>
         </div>
-        <div className="shrink-0 text-hud-positive text-4xl font-thin opacity-50 select-none">
-          →
+        <div className="shrink-0 flex items-center gap-2 rounded-lg border border-hud-gold bg-hud-gold px-4 py-2.5 text-ink text-xs font-semibold whitespace-nowrap">
+          {nextMonth !== null ? `Run Month ${nextMonth}` : 'Review Results'}
+          <span className="text-lg font-thin leading-none">→</span>
         </div>
       </button>
 
