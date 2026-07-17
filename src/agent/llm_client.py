@@ -1,8 +1,8 @@
 """
 API-backed assistant client with mock fallback.
 
-The OpenAI API key is loaded from environment variables or a local `.env` file.
-Never commit a real API key. The `.env` file is intentionally git-ignored.
+API keys are loaded from environment variables or a local `.env` file. Never
+commit a real API key. The `.env` file is intentionally git-ignored.
 """
 
 from __future__ import annotations
@@ -25,6 +25,8 @@ except ImportError:
 
 DEFAULT_MODEL = "gpt-4o-mini"
 DEFAULT_BASE_URL = "https://api.openai.com/v1"
+DEFAULT_AZURE_API_VERSION = "v1"
+DEFAULT_MAX_OUTPUT_TOKENS = 500
 DEFAULT_TIMEOUT_SECONDS = 30
 
 
@@ -32,9 +34,13 @@ DEFAULT_TIMEOUT_SECONDS = 30
 class AssistantClientConfig:
     """Configuration for the API-backed assistant."""
 
+    provider: str
     api_key: str | None
     model: str = DEFAULT_MODEL
     base_url: str = DEFAULT_BASE_URL
+    azure_endpoint: str | None = None
+    azure_deployment: str | None = None
+    azure_api_version: str = DEFAULT_AZURE_API_VERSION
     timeout_seconds: int = DEFAULT_TIMEOUT_SECONDS
 
 
@@ -64,7 +70,22 @@ def load_env_file(env_path: str | Path | None = None) -> None:
 def get_config() -> AssistantClientConfig:
     """Read assistant configuration from environment variables."""
     load_env_file()
+    provider = os.getenv("OPENAI_PROVIDER", "openai").strip().lower()
+    if provider == "azure":
+        return AssistantClientConfig(
+            provider=provider,
+            api_key=os.getenv("AZURE_OPENAI_API_KEY") or None,
+            model=os.getenv("AZURE_OPENAI_DEPLOYMENT", DEFAULT_MODEL),
+            azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT") or None,
+            azure_deployment=os.getenv("AZURE_OPENAI_DEPLOYMENT") or None,
+            azure_api_version=os.getenv(
+                "AZURE_OPENAI_API_VERSION",
+                DEFAULT_AZURE_API_VERSION,
+            ),
+        )
+
     return AssistantClientConfig(
+        provider="openai",
         api_key=os.getenv("OPENAI_API_KEY") or None,
         model=os.getenv("OPENAI_MODEL", DEFAULT_MODEL),
         base_url=os.getenv("OPENAI_BASE_URL", DEFAULT_BASE_URL),
@@ -73,7 +94,14 @@ def get_config() -> AssistantClientConfig:
 
 def is_api_configured() -> bool:
     """Return whether a non-empty API key is available."""
-    return bool(get_config().api_key)
+    config = get_config()
+    if config.provider == "azure":
+        return bool(
+            config.api_key
+            and config.azure_endpoint
+            and config.azure_deployment
+        )
+    return bool(config.api_key)
 
 
 def get_assistant_response(
@@ -89,10 +117,10 @@ def get_assistant_response(
     the mock agent is used instead.
     """
     config = get_config()
-    if not config.api_key:
+    if not _has_required_config(config):
         fallback = get_mock_response(student_message)
         fallback["source"] = "mock"
-        fallback["fallback_reason"] = "missing_api_key"
+        fallback["fallback_reason"] = f"missing_{config.provider}_configuration"
         return fallback
 
     try:
@@ -105,7 +133,7 @@ def get_assistant_response(
             "message": message,
             "topic": "llm",
             "follow_up_questions": [],
-            "source": "openai",
+            "source": config.provider,
             "model": config.model,
         }
     except Exception as exc:
@@ -124,25 +152,24 @@ def _call_openai_chat(
     config: AssistantClientConfig,
     extra_context: str | None,
 ) -> str:
-    """Call OpenAI's chat completions endpoint using the standard library."""
-    url = f"{config.base_url.rstrip('/')}/chat/completions"
+    """Call the configured chat completions endpoint using the standard library."""
+    url = _chat_completions_url(config)
     payload = {
-        "model": config.model,
         "messages": [
             {"role": "system", "content": build_system_prompt(extra_context)},
             {"role": "user", "content": build_user_prompt(student_message)},
         ],
         "temperature": 0.3,
+        "max_tokens": DEFAULT_MAX_OUTPUT_TOKENS,
     }
+    if config.provider == "openai" or _uses_azure_v1_endpoint(config):
+        payload["model"] = config.model
 
     data = json.dumps(payload).encode("utf-8")
     request = urllib.request.Request(
         url,
         data=data,
-        headers={
-            "Authorization": f"Bearer {config.api_key}",
-            "Content-Type": "application/json",
-        },
+        headers=_request_headers(config),
         method="POST",
     )
 
@@ -160,13 +187,58 @@ def _call_openai_chat(
     return parsed["choices"][0]["message"]["content"].strip()
 
 
+def _has_required_config(config: AssistantClientConfig) -> bool:
+    """Return whether the selected provider has enough config to make a call."""
+    if config.provider == "azure":
+        return bool(
+            config.api_key
+            and config.azure_endpoint
+            and config.azure_deployment
+        )
+    return bool(config.api_key)
+
+
+def _chat_completions_url(config: AssistantClientConfig) -> str:
+    """Build the provider-specific chat completions URL."""
+    if config.provider == "azure":
+        endpoint = (config.azure_endpoint or "").rstrip("/")
+        deployment = config.azure_deployment or ""
+        if _uses_azure_v1_endpoint(config):
+            return f"{endpoint}/chat/completions?api-version={config.azure_api_version}"
+
+        return (
+            f"{endpoint}/openai/deployments/{deployment}/chat/completions"
+            f"?api-version={config.azure_api_version}"
+        )
+
+    return f"{config.base_url.rstrip('/')}/chat/completions"
+
+
+def _request_headers(config: AssistantClientConfig) -> dict[str, str]:
+    """Build provider-specific request headers."""
+    headers = {"Content-Type": "application/json"}
+    if config.provider == "azure":
+        headers["api-key"] = config.api_key or ""
+    else:
+        headers["Authorization"] = f"Bearer {config.api_key}"
+    return headers
+
+
+def _uses_azure_v1_endpoint(config: AssistantClientConfig) -> bool:
+    """Return whether Azure endpoint already includes `/openai/v1`."""
+    endpoint = (config.azure_endpoint or "").rstrip("/")
+    return endpoint.endswith("/openai/v1")
+
+
+
+
 def _default_env_path() -> Path:
     """Return the repository-level `.env` path."""
     return Path(__file__).resolve().parents[2] / ".env"
 
 
 if __name__ == "__main__":
-    print("OpenAI API configured:", is_api_configured())
+    print("Assistant API configured:", is_api_configured())
     while True:
         try:
             message = input("\nStudent> ").strip()

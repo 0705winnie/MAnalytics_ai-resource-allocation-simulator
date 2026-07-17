@@ -68,7 +68,8 @@ src/simulator/
 - `src/agent/prompt_templates.py` contains the assistant's rules and guardrails,
   including not revealing hidden parameters or future simulation data.
 - `src/agent/llm_client.py` calls the OpenAI API when `OPENAI_API_KEY` is
-  configured and falls back to the mock assistant otherwise.
+  configured, or Azure OpenAI when Azure environment variables are configured,
+  and falls back to the mock assistant otherwise.
 - `.env.example` shows the environment variables needed for local LLM mode.
 - `src/simulator/.gitkeep` keeps the simulator folder in Git until Stream B adds
   simulator code.
@@ -103,10 +104,25 @@ The assistant can run in two modes:
 Create a local `.env` file from `.env.example`:
 
 ```text
+OPENAI_PROVIDER=openai
+
+# Standard OpenAI mode
 OPENAI_API_KEY=
 OPENAI_MODEL=gpt-4o-mini
 OPENAI_BASE_URL=https://api.openai.com/v1
+
+# Azure OpenAI mode
+AZURE_OPENAI_API_KEY=
+AZURE_OPENAI_ENDPOINT=
+AZURE_OPENAI_DEPLOYMENT=
+AZURE_OPENAI_API_VERSION=v1
 ```
+
+For Azure OpenAI, set `OPENAI_PROVIDER=azure`, put your Azure endpoint in
+`AZURE_OPENAI_ENDPOINT`, and put your model deployment name in
+`AZURE_OPENAI_DEPLOYMENT`. The client supports either the newer
+`https://...openai.azure.com/openai/v1` endpoint style or the older resource
+endpoint style.
 
 Do not commit `.env`. It is ignored by Git.
 
