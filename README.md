@@ -1,37 +1,95 @@
-# AI Compute Dispatcher
+# AI-Assisted Online Resource Allocation Simulator
 
-A four-phase teaching simulator for GPU capacity planning under the newsvendor
-model and routing under M/M/c-style queuing. Students iterate Telemetry →
-Strategy → Simulator → Results across four quarters.
+A teaching dashboard for an online adaptive resource-allocation module. Students
+inspect historical operating data, write an admission-and-routing policy, use an
+AI assistant to reason through ideas and debug code, then run their policy
+month-by-month against a real discrete-event simulator and compare results
+against benchmark policies.
 
-## Quick start
+The platform models a cloud service with 3 server clusters (100 units each)
+serving VIP / Standard / Economy requests at different unit prices, with real
+reusable capacity and departure dynamics — a job only earns revenue if it's
+admitted **and** completes before month-end.
 
-Requirements: Node 18+, Python 3.11+.
+## Architecture
+
+A React/TypeScript dashboard talks to a FastAPI backend over a `/api` proxy:
+
+```text
+backend/app/
+  main.py                       # FastAPI entry point — CORS, router registration, /health
+  routers/
+    ai_assistant.py             # POST /ai-assistant
+    simulate.py                 # POST /simulate, POST /simulate/month
+  services/
+    llm_client.py                # Azure + mock LLM clients; provider via LLM_PROVIDER
+    prompt_templates.py          # System prompt builder (injects live dashboard context)
+    policy_sandbox.py            # Restricted exec() of a student's admission_policy code
+    simulation_engine.py         # Poisson arrivals, Gamma service times, capacity/departure tracking
+    baseline_policies.py         # 4 benchmark policies (always-reject, greedy, least-loaded, best-fit)
+backend/tests/                  # pytest suite for the engine, sandbox, benchmarks, both endpoints
+
+src/
+  App.tsx                       # Owns page routing + all state shared across pages
+  components/NavBar.tsx
+  pages/
+    IntroDataPage.tsx           # 01 — case narrative, system params, historical-data charts
+    PolicyAIPage.tsx            # 02 — policy editor, params editor, AI assistant chat
+    SimulationPage.tsx          # 03 — month stepper, run control, monthly + cumulative results
+    LeaderboardPage.tsx         # 04 — local submission history + leaderboard
+  lib/
+    api.ts                      # fetch wrappers: postChat, postSimulate, postSimulateMonth
+    storage.ts                  # localStorage-only user identity + submission history
+  data/historicalData.ts        # Static historical summary data bundled for Page 1
+```
+
+### Reference material (not yet wired into the app)
+
+A few files carry over from an earlier exploration branch and are kept as
+inert reference material — nothing in `backend/` or `src/` imports them:
+
+- `src/agent/` — a standalone (non-FastAPI) AI-assistant client with its own
+  mock fallback and prompt templates. **Not the assistant the dashboard uses**
+  (that's `backend/app/services/llm_client.py` — see below). Consolidating the
+  useful parts of `src/agent/prompt_templates.py`'s guardrail text into the
+  canonical implementation is planned as a separate follow-up.
+- `src/data/explore_historical_data.py`, `outputs/figures/*.png` — exploratory
+  plots and the script that generated them.
+- `src/simulator/.gitkeep` — empty placeholder, superseded by
+  `backend/app/services/simulation_engine.py`.
+
+## Setup
+
+**Backend** (Python 3.11+):
 
 ```bash
-# 1. Frontend deps
+pip install -r backend/requirements.txt
+# (the root requirements.txt just points here: pip install -r requirements.txt also works)
+```
+
+**Frontend** (Node 18+):
+
+```bash
 npm install
-
-# 2. Backend deps
-cd backend && python3 -m pip install -r requirements.txt && cd ..
-
-# 3. Seed the SQLite telemetry (730 days of synthetic demand)
-#    Re-seed after changing the generator: append --reset.
-cd backend && python3 -m scripts.seed_telemetry && cd ..
-
-# 4. Run backend and frontend in two terminals
-npm run dev:api   # FastAPI on :8000
-npm run dev       # Vite on :5173 (proxies /api → :8000)
 ```
 
-Open http://localhost:5173.
+## Running locally
 
-## Environment
+Two processes, run in separate terminals from the repo root:
 
-Copy `.env.example` to `.env` and fill in your values. The `.env` file is gitignored — never commit it.
-
+```bash
+npm run dev:api   # FastAPI on http://127.0.0.1:8000
+npm run dev       # Vite dev server — proxies /api/* to the backend (see vite.config.ts)
 ```
-# Which provider to use — "mock" works locally with no API key.
+
+Then open the Vite dev server URL in a browser.
+
+## Environment / AI assistant configuration
+
+Copy `.env.example` to `.env` (gitignored — never commit it):
+
+```text
+# "mock" works locally with no API key and no network calls.
 LLM_PROVIDER=mock
 
 # Required only when LLM_PROVIDER=azure:
@@ -39,58 +97,33 @@ AZURE_OPENAI_ENDPOINT=https://YOUR-RESOURCE-NAME.openai.azure.com/
 AZURE_OPENAI_API_KEY=your-azure-api-key-here
 AZURE_OPENAI_DEPLOYMENT=gpt-4o-mini
 AZURE_OPENAI_API_VERSION=2024-02-01
-
-VITE_API_BASE_URL=/api       # frontend → backend. /api works with the Vite proxy.
 ```
 
-With `LLM_PROVIDER=mock` the `/ai-assistant` endpoint returns scripted replies — no API key needed. Set `LLM_PROVIDER=azure` and fill in the `AZURE_OPENAI_*` vars to use a real model.
+With `LLM_PROVIDER=mock`, `POST /ai-assistant` returns scripted keyword-matched
+teaching responses — no API key needed. Set `LLM_PROVIDER=azure` and fill in
+the `AZURE_OPENAI_*` variables to use a real Azure OpenAI / AI Foundry model.
+(Plain, non-Azure OpenAI is not currently supported — this is being evaluated
+as a follow-up, see "Reference material" above.)
 
-## Layout
-
-```
-backend/app/
-  main.py               # FastAPI entry point, CORS setup, router registration
-  routers/
-    ai_assistant.py     # POST /ai-assistant — receives student message, returns AI reply
-  services/
-    llm_client.py       # Azure + Mock LLM clients; provider selected via LLM_PROVIDER
-    prompt_templates.py # System prompt builder (injects current dashboard context)
-src/
-  App.tsx                              # phase switching
-  components/TelemetryRoom.tsx         # Phase 1 — read the demand data
-  components/DualCoreWorkspace.tsx     # Phase 2 — strategy + AI dispatcher
-  components/ChaosSimulator.tsx        # Phase 3 — month-by-month replay
-  components/RadarLeaderboard.tsx      # Phase 4 — scoring
-```
-
-## Scoring (Phase 4)
-
-Five dimensions, each scored 0–100:
-
-| Dimension              | Formula                                  |
-|------------------------|------------------------------------------|
-| Capacity Accuracy      | 1 − \|N − 15\| / 15                      |
-| VIP Protection Rate    | VIP served / VIP total                   |
-| Peak Resilience        | peak-month profit / normal-month profit  |
-| Cost Efficiency        | revenue / (compute + SLA penalty)        |
-| Overage Control        | 1 − idle / total cost                    |
-
-## End-to-end sanity check
-
-`run_student_sim.py` exercises the full Q1→Q4 path against a running backend
-and prints a quarterly P&L + radar scorecard. Useful as a smoke test:
+## Testing
 
 ```bash
-npm run dev:api          # in one terminal
-python3 run_student_sim.py
+cd backend && pytest
 ```
 
-## Notes for graders / reviewers
+```bash
+npx tsc --noEmit
+npm run build
+```
 
-- N is locked once on Phase 2 and carried across all four quarters
-  (newsvendor: a single CapEx decision).
-- Per-quarter levers `vip_multiplier` and `sla_target` are passed to the
-  simulator and affect VIP revenue/penalty and the SLA-breach charge.
-- The Strategy editor compiles `route_request(job, servers) -> int` in a
-  restricted Python namespace (no `import`, no filesystem/network/env access).
-  Errors fall back to Join-Shortest-Queue.
+## Historical data generation
+
+The dataset shown on Page 1 (`src/data/historicalData.ts`) was generated
+offline from a hidden ground-truth environment and is bundled as static data
+rather than served by an endpoint:
+
+```bash
+python src/data/generate_historical_data.py
+```
+
+This writes CSVs under `data/generated/` and figures under `outputs/figures/`.
