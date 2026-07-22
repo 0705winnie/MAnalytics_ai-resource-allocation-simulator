@@ -6,8 +6,9 @@ AI assistant to reason through ideas and debug code, then run their policy
 month-by-month against a real discrete-event simulator and compare results
 against benchmark policies.
 
-The platform models a cloud service with 3 server clusters (100 units each)
-serving VIP / Standard / Economy requests at different unit prices, with real
+The platform models a cloud service with 10 heterogeneous server clusters
+with capacities from 12 to 20 server-units. It serves VIP / Standard /
+Economy requests at different unit prices, with real
 reusable capacity and departure dynamics — a job only earns revenue if it's
 admitted **and** completes before month-end.
 
@@ -26,7 +27,7 @@ backend/app/
     prompt_templates.py          # System prompt builder (injects live dashboard context)
     policy_sandbox.py            # Restricted exec() of a student's admission_policy code
     simulation_engine.py         # Poisson arrivals, Gamma service times, capacity/departure tracking
-    baseline_policies.py         # 4 benchmark policies (always-reject, greedy, least-loaded, best-fit)
+    baseline_policies.py         # 6 benchmark policies for student-policy comparison
 backend/tests/                  # pytest suite for the engine, sandbox, benchmarks, both endpoints
 
 src/
