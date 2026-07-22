@@ -38,6 +38,18 @@ export interface SimulationResponse {
   total_unfinished_requests: number
   total_unfinished_value: number
   warnings: string[]
+  benchmark_comparison: BenchmarkResult[]
+}
+
+export interface BenchmarkResult {
+  policy: string
+  total_revenue: number
+  total_unfinished_requests: number
+  total_unfinished_value: number
+  admitted_requests: number
+  completed_requests: number
+  rejected_requests: number
+  warnings_count: number
 }
 
 export interface SimulateRequest {
@@ -53,6 +65,7 @@ export interface SimulateRequest {
 export interface MonthDetailResult extends SimulationMonthResult {
   by_type: SimulationTypeResult[]
   warnings: string[]
+  benchmark_comparison: BenchmarkResult[]
   // Keyed by cluster id; JSON object keys arrive as strings.
   remaining_capacity: Record<string, number>
 }
