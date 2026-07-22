@@ -20,6 +20,7 @@ from typing import Any, Dict, List
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.services.baseline_policies import BASELINE_POLICIES
 from app.services.policy_sandbox import PolicyError, compile_policy
 from app.services.simulation_engine import DEFAULT_SEED, run_full_simulation, simulate_month
 
@@ -59,6 +60,17 @@ class TypeResult(BaseModel):
     total_revenue: float
 
 
+class BenchmarkResult(BaseModel):
+    policy: str
+    total_revenue: float
+    total_unfinished_requests: int
+    total_unfinished_value: float
+    admitted_requests: int
+    completed_requests: int
+    rejected_requests: int
+    warnings_count: int
+
+
 class SimulateResponse(BaseModel):
     monthly: List[MonthResult]
     by_type: List[TypeResult]
@@ -66,6 +78,7 @@ class SimulateResponse(BaseModel):
     total_unfinished_requests: int
     total_unfinished_value: float
     warnings: List[str]
+    benchmark_comparison: List[BenchmarkResult]
 
 
 class SimulateMonthRequest(BaseModel):
@@ -89,6 +102,33 @@ class MonthDetailResponse(MonthResult):
     remaining_capacity: Dict[int, int]
     by_type: List[TypeResult]
     warnings: List[str]
+    benchmark_comparison: List[BenchmarkResult]
+
+
+def _summarize_full_year(policy: str, result: dict) -> BenchmarkResult:
+    return BenchmarkResult(
+        policy=policy,
+        total_revenue=result["total_revenue"],
+        total_unfinished_requests=result["total_unfinished_requests"],
+        total_unfinished_value=result["total_unfinished_value"],
+        admitted_requests=sum(m["admitted_requests"] for m in result["monthly"]),
+        completed_requests=sum(m["completed_requests"] for m in result["monthly"]),
+        rejected_requests=sum(m["rejected_requests"] for m in result["monthly"]),
+        warnings_count=len(result["warnings"]),
+    )
+
+
+def _summarize_month(policy: str, result: dict) -> BenchmarkResult:
+    return BenchmarkResult(
+        policy=policy,
+        total_revenue=result["total_revenue"],
+        total_unfinished_requests=result["unfinished_requests"],
+        total_unfinished_value=result["unfinished_value"],
+        admitted_requests=result["admitted_requests"],
+        completed_requests=result["completed_requests"],
+        rejected_requests=result["rejected_requests"],
+        warnings_count=len(result["warnings"]),
+    )
 
 
 @router.post("", response_model=SimulateResponse)
@@ -99,6 +139,12 @@ async def simulate(request: SimulateRequest) -> SimulateResponse:
         raise HTTPException(status_code=400, detail=str(e))
 
     result = run_full_simulation(policy_fn, request.params, seed=DEFAULT_SEED)
+    benchmark_comparison = [_summarize_full_year("student_policy", result)]
+    for name, benchmark_fn in BASELINE_POLICIES.items():
+        benchmark_result = run_full_simulation(benchmark_fn, {}, seed=DEFAULT_SEED)
+        benchmark_comparison.append(_summarize_full_year(name, benchmark_result))
+
+    result["benchmark_comparison"] = benchmark_comparison
     return SimulateResponse(**result)
 
 
@@ -116,4 +162,16 @@ async def simulate_single_month(request: SimulateMonthRequest) -> MonthDetailRes
         seed=DEFAULT_SEED,
         previous_months=request.previous_months,
     )
+    benchmark_comparison = [_summarize_month("student_policy", result)]
+    for name, benchmark_fn in BASELINE_POLICIES.items():
+        benchmark_result = simulate_month(
+            request.month,
+            benchmark_fn,
+            {},
+            seed=DEFAULT_SEED,
+            previous_months=request.previous_months,
+        )
+        benchmark_comparison.append(_summarize_month(name, benchmark_result))
+
+    result["benchmark_comparison"] = benchmark_comparison
     return MonthDetailResponse(**result)
