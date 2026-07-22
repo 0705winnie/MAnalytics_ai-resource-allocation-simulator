@@ -20,36 +20,28 @@ from typing import Callable, Dict, List, Tuple
 
 import numpy as np
 
+from app.services.hidden_environment import (
+    BASE_MONTHLY_ARRIVALS,
+    CLUSTER_CAPACITY,
+    DAYS_PER_MONTH,
+    DEFAULT_RANDOM_SEED,
+    HOURS_PER_DAY,
+    MEAN_SERVICE_DURATION,
+    MONTHLY_MULTIPLIER,
+    N_CLUSTERS,
+    PRICE_PER_UNIT,
+    REQUIRED_UNITS_DISTRIBUTION,
+    REQUEST_TYPES,
+    SERVICE_DURATION_GAMMA_SHAPE,
+    SIMULATION_MONTHS,
+    TYPE_MONTHLY_MULTIPLIER,
+)
 from app.services.policy_sandbox import PolicyRuntimeError, call_policy
 
-REQUEST_TYPES = ["VIP", "standard", "economy"]
-N_CLUSTERS = 3
-CLUSTER_CAPACITY = 100
-
-SIMULATION_MONTHS = 12
-DAYS_PER_MONTH = 30
-HOURS_PER_DAY = 24
 MONTH_HOURS = DAYS_PER_MONTH * HOURS_PER_DAY  # 720
+CLUSTER_IDS = sorted(CLUSTER_CAPACITY)
 
-PRICE_PER_UNIT = {"VIP": 12, "standard": 7, "economy": 4}
-
-BASE_MONTHLY_ARRIVALS = {"VIP": 120, "standard": 450, "economy": 300}
-
-MONTHLY_MULTIPLIER = {
-    1: 0.85, 2: 0.90, 3: 1.00, 4: 1.05, 5: 1.10, 6: 1.20,
-    7: 1.35, 8: 1.25, 9: 1.10, 10: 1.00, 11: 1.15, 12: 1.30,
-}
-
-REQUIRED_UNITS_DISTRIBUTION = {
-    "VIP":      {"values": [8, 10, 12, 15], "probabilities": [0.20, 0.35, 0.30, 0.15]},
-    "standard": {"values": [4, 6, 8, 10],   "probabilities": [0.25, 0.35, 0.25, 0.15]},
-    "economy":  {"values": [2, 3, 4, 6],    "probabilities": [0.30, 0.35, 0.25, 0.10]},
-}
-
-MEAN_SERVICE_DURATION = {"VIP": 4, "standard": 6, "economy": 9}
-SERVICE_DURATION_GAMMA_SHAPE = 2
-
-DEFAULT_SEED = 42
+DEFAULT_SEED = DEFAULT_RANDOM_SEED
 
 MAX_WARNINGS = 50
 
@@ -69,7 +61,11 @@ def _generate_month_arrivals(month: int, rng: np.random.Generator) -> List[dict]
     """One month's arrival stream, sorted by arrival_time (hours from month start)."""
     arrivals: List[dict] = []
     for request_type in REQUEST_TYPES:
-        expected = BASE_MONTHLY_ARRIVALS[request_type] * MONTHLY_MULTIPLIER[month]
+        expected = (
+            BASE_MONTHLY_ARRIVALS[request_type]
+            * MONTHLY_MULTIPLIER[month]
+            * TYPE_MONTHLY_MULTIPLIER[request_type][month]
+        )
         n = int(rng.poisson(expected))
         for _ in range(n):
             arrival_time = float(rng.uniform(0, MONTH_HOURS))
@@ -104,10 +100,10 @@ def _run_month(
         same as they do for utilization purposes; this snapshot is informational
         only since the next month always starts with a fresh, full `capacity`.
     """
-    capacity = {i: CLUSTER_CAPACITY for i in range(1, N_CLUSTERS + 1)}
-    busy_units = {i: 0 for i in range(1, N_CLUSTERS + 1)}
-    busy_unit_hours = {i: 0.0 for i in range(1, N_CLUSTERS + 1)}
-    peak_busy_units = {i: 0 for i in range(1, N_CLUSTERS + 1)}
+    capacity = dict(CLUSTER_CAPACITY)
+    busy_units = {i: 0 for i in CLUSTER_IDS}
+    busy_unit_hours = {i: 0.0 for i in CLUSTER_IDS}
+    peak_busy_units = {i: 0 for i in CLUSTER_IDS}
     departures: List[tuple] = []  # heap of (departure_time, cluster_id, units)
     admitted_jobs: List[dict] = []
     last_event_time = 0.0
@@ -206,10 +202,10 @@ def _run_month(
     accrue(MONTH_HOURS)
 
     avg_utilization = {
-        c: round(busy_unit_hours[c] / (CLUSTER_CAPACITY * MONTH_HOURS), 4) for c in busy_units
+        c: round(busy_unit_hours[c] / (CLUSTER_CAPACITY[c] * MONTH_HOURS), 4) for c in busy_units
     }
     peak_utilization = {
-        c: round(peak_busy_units[c] / CLUSTER_CAPACITY, 4) for c in busy_units
+        c: round(peak_busy_units[c] / CLUSTER_CAPACITY[c], 4) for c in busy_units
     }
 
     return admitted_jobs, avg_utilization, peak_utilization, dict(capacity)
