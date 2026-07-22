@@ -20,13 +20,15 @@ these are just alternative `policy_fn` values for the existing engine.
 
 Tie-breaking: whenever more than one cluster ties on a policy's selection
 criterion, the lowest cluster id wins. This is applied consistently across
-all four policies below so results are deterministic given a fixed arrival
+all policies below so results are deterministic given a fixed arrival
 stream and seed.
 """
 
 from __future__ import annotations
 
 from typing import Callable, Dict
+
+from app.services.hidden_environment import MEAN_SERVICE_DURATION, PRICE_PER_UNIT
 
 
 def always_reject_policy(request: dict, state: dict, history: dict, params: dict) -> int:
@@ -78,9 +80,69 @@ def best_fit_policy(request: dict, state: dict, history: dict, params: dict) -> 
     return feasible[0][0]
 
 
+def vip_priority_policy(request: dict, state: dict, history: dict, params: dict) -> int:
+    """
+    Protect capacity for high-value work.
+
+    VIP requests are admitted whenever feasible. Standard requests are admitted
+    unless they would leave the selected cluster almost full. Economy requests
+    are admitted only when there is enough spare capacity after assignment.
+    """
+    request_type = request["type"]
+    required = request["required_units"]
+    feasible = [
+        (cluster_id, remaining - required)
+        for cluster_id, remaining in state["remaining_capacity"].items()
+        if remaining >= required
+    ]
+    if not feasible:
+        return 0
+
+    feasible.sort(key=lambda pair: (-pair[1], pair[0]))
+    best_cluster, leftover = feasible[0]
+
+    if request_type == "economy" and leftover < 8:
+        return 0
+    if request_type == "standard" and leftover < 4:
+        return 0
+    return best_cluster
+
+
+def revenue_density_policy(request: dict, state: dict, history: dict, params: dict) -> int:
+    """
+    Admit work based on expected revenue per capacity-hour.
+
+    This benchmark uses hidden type-level mean duration as a simple estimate.
+    It is useful as a reference policy, not as a policy students should be
+    handed directly.
+    """
+    request_type = request["type"]
+    required = request["required_units"]
+    density = PRICE_PER_UNIT[request_type] / MEAN_SERVICE_DURATION[request_type]
+
+    feasible = [
+        (cluster_id, remaining - required)
+        for cluster_id, remaining in state["remaining_capacity"].items()
+        if remaining >= required
+    ]
+    if not feasible:
+        return 0
+
+    feasible.sort(key=lambda pair: (pair[1], pair[0]))
+    best_cluster, leftover = feasible[0]
+
+    if density < 0.35 and leftover < 10:
+        return 0
+    if density < 1.0 and leftover < 4:
+        return 0
+    return best_cluster
+
+
 BASELINE_POLICIES: Dict[str, Callable[[dict, dict, dict, dict], int]] = {
     "always_reject": always_reject_policy,
     "greedy_first_fit": greedy_first_fit_policy,
     "least_loaded": least_loaded_policy,
     "best_fit": best_fit_policy,
+    "vip_priority": vip_priority_policy,
+    "revenue_density": revenue_density_policy,
 }
