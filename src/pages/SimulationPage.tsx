@@ -6,6 +6,7 @@ import {
 import { postSimulateMonth } from '../lib/api'
 import { createSubmission } from '../lib/storage'
 import type {
+  BenchmarkResult,
   MonthDetailResult,
   PolicyParams,
   SimulationMonthResult,
@@ -21,6 +22,16 @@ const MONTH_LABELS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct
 const TOTAL_MONTHS = 12
 
 const TYPE_COLORS: Record<string, string> = { VIP: '#002676', standard: '#2E7D32', economy: '#8598AF' }
+
+const POLICY_LABELS: Record<string, string> = {
+  student_policy: 'Your policy',
+  always_reject: 'Always reject',
+  greedy_first_fit: 'Greedy first-fit',
+  least_loaded: 'Least loaded',
+  best_fit: 'Best fit',
+  vip_priority: 'VIP priority',
+  revenue_density: 'Revenue density',
+}
 
 const TOOLTIP = {
   contentStyle: {
@@ -89,7 +100,30 @@ function aggregateMonths(months: MonthDetailResult[]): SimulationResponse {
     total_unfinished_requests: months.reduce((s, m) => s + m.unfinished_requests, 0),
     total_unfinished_value: months.reduce((s, m) => s + m.unfinished_value, 0),
     warnings: months.flatMap((m) => m.warnings),
+    benchmark_comparison: aggregateBenchmarkComparison(months),
   }
+}
+
+function aggregateBenchmarkComparison(months: MonthDetailResult[]): BenchmarkResult[] {
+  const totals = new Map<string, BenchmarkResult>()
+
+  for (const month of months) {
+    for (const row of month.benchmark_comparison ?? []) {
+      const existing = totals.get(row.policy)
+      totals.set(row.policy, {
+        policy: row.policy,
+        total_revenue: (existing?.total_revenue ?? 0) + row.total_revenue,
+        total_unfinished_requests: (existing?.total_unfinished_requests ?? 0) + row.total_unfinished_requests,
+        total_unfinished_value: (existing?.total_unfinished_value ?? 0) + row.total_unfinished_value,
+        admitted_requests: (existing?.admitted_requests ?? 0) + row.admitted_requests,
+        completed_requests: (existing?.completed_requests ?? 0) + row.completed_requests,
+        rejected_requests: (existing?.rejected_requests ?? 0) + row.rejected_requests,
+        warnings_count: (existing?.warnings_count ?? 0) + row.warnings_count,
+      })
+    }
+  }
+
+  return Array.from(totals.values())
 }
 
 // Minimal runtime shape check on top of the TS type (which is erased at
@@ -107,6 +141,7 @@ function isValidMonthDetailResult(value: unknown): value is MonthDetailResult {
     typeof v.total_revenue === 'number' &&
     typeof v.unfinished_requests === 'number' &&
     Array.isArray(v.warnings) &&
+    Array.isArray(v.benchmark_comparison) &&
     Array.isArray(v.by_type) &&
     typeof v.avg_utilization === 'object' &&
     typeof v.peak_utilization === 'object' &&
@@ -160,6 +195,47 @@ function StatTile({ label, value, accent }: { label: string; value: string; acce
       <div className={`font-mono font-semibold text-sm ${accent ? 'text-hud-accent' : 'text-ink'}`}>
         {value}
       </div>
+    </div>
+  )
+}
+
+function BenchmarkComparisonTable({ rows }: { rows: BenchmarkResult[] }) {
+  const sorted = rows.slice().sort((a, b) => b.total_revenue - a.total_revenue)
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="text-left text-ink-faint border-b border-line">
+            <th className="py-2 pr-4 font-medium">Policy</th>
+            <th className="py-2 pr-4 font-medium">Revenue</th>
+            <th className="py-2 pr-4 font-medium">Completed</th>
+            <th className="py-2 pr-4 font-medium">Rejected</th>
+            <th className="py-2 pr-4 font-medium">Unfinished</th>
+            <th className="py-2 pr-4 font-medium">Unfinished Value</th>
+            <th className="py-2 pr-4 font-medium">Warnings</th>
+          </tr>
+        </thead>
+        <tbody className="font-mono text-ink-dim">
+          {sorted.map((row) => {
+            const isStudent = row.policy === 'student_policy'
+            return (
+              <tr
+                key={row.policy}
+                className={`border-b border-line ${isStudent ? 'bg-hud-accent/8 text-ink' : ''}`}
+              >
+                <td className="py-2 pr-4 font-sans">{POLICY_LABELS[row.policy] ?? row.policy}</td>
+                <td className="py-2 pr-4 text-hud-accent">${row.total_revenue.toLocaleString()}</td>
+                <td className="py-2 pr-4">{row.completed_requests.toLocaleString()}</td>
+                <td className="py-2 pr-4">{row.rejected_requests.toLocaleString()}</td>
+                <td className="py-2 pr-4">{row.total_unfinished_requests.toLocaleString()}</td>
+                <td className="py-2 pr-4">${row.total_unfinished_value.toLocaleString()}</td>
+                <td className="py-2 pr-4">{row.warnings_count}</td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
     </div>
   )
 }
@@ -491,6 +567,13 @@ export default function SimulationPage({
             <StatTile label="Unfinished" value={shownMonth.unfinished_requests.toLocaleString()} />
           </div>
 
+          <div className="mb-5">
+            <div className="text-xs text-ink-faint mb-2 uppercase tracking-wide">
+              Same-Month Benchmark Comparison
+            </div>
+            <BenchmarkComparisonTable rows={shownMonth.benchmark_comparison} />
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <div className="text-xs text-ink-faint mb-2 uppercase tracking-wide">Revenue by Type</div>
@@ -595,6 +678,14 @@ export default function SimulationPage({
               value={`$${aggregated.total_unfinished_value.toLocaleString()}`}
             />
           </div>
+
+          <SectionCard title="Cumulative Policy vs. Benchmarks" label="00">
+            <ChartInsight>
+              This compares your policy with fixed baseline policies over the same completed months.
+              The goal is not just to beat every baseline, but to understand which tradeoff your policy is making.
+            </ChartInsight>
+            <BenchmarkComparisonTable rows={aggregated.benchmark_comparison} />
+          </SectionCard>
 
           <SectionCard title="Monthly Revenue" label="01">
             <ResponsiveContainer width="100%" height={240}>
