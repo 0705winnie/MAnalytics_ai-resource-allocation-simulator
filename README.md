@@ -180,6 +180,32 @@ to letter case or surrounding whitespace. As with authentication, Vite removes
 the browser-facing `/api` prefix and forwards these requests to the same hidden
 `/instructor/courses` compatibility handlers.
 
+### Instructor roster import
+
+An instructor can upload an owned, active course roster to
+`POST /api/instructor/courses/{course_id}/roster/import` as
+`multipart/form-data` using the field name `file`. The UTF-8 CSV must be no
+larger than 1 MB, contain at most 1000 non-empty data rows, and have exactly one
+column:
+
+```csv
+berkeley_username
+yguo
+abc123
+wenchia
+```
+
+The response is a non-cacheable CSV download. A newly created enrollment's
+plaintext activation code appears in that download once; only its secure hash
+is stored. Existing enrollments are not changed and do not receive replacement
+codes. Instructors must save the download securely and immediately. A lost
+code cannot be recovered; a future Instructor regenerate feature must create a
+new code and invalidate the old one.
+
+The Vite proxy removes `/api`, so the backend also exposes the same handler at
+`/instructor/courses/{course_id}/roster/import` without duplicating the import
+system.
+
 ## Running locally
 
 Two processes, run in separate terminals from the repo root:

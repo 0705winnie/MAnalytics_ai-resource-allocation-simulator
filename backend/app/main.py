@@ -15,7 +15,13 @@ from fastapi.middleware.cors import CORSMiddleware
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
 from app.core.config import AuthSettings, get_auth_settings  # noqa: E402
-from app.routers import ai_assistant, auth, instructor_courses, simulate  # noqa: E402
+from app.routers import (  # noqa: E402
+    ai_assistant,
+    auth,
+    instructor_courses,
+    instructor_roster,
+    simulate,
+)
 
 
 def create_app(auth_settings: AuthSettings | None = None) -> FastAPI:
@@ -42,6 +48,8 @@ def create_app(auth_settings: AuthSettings | None = None) -> FastAPI:
     api.include_router(auth.router, include_in_schema=False)
     api.include_router(instructor_courses.router, prefix="/api")
     api.include_router(instructor_courses.router, include_in_schema=False)
+    api.include_router(instructor_roster.router, prefix="/api")
+    api.include_router(instructor_roster.router, include_in_schema=False)
 
     @api.get("/health")
     def health_check() -> dict[str, str]:
