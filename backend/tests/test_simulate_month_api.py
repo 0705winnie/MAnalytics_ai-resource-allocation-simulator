@@ -32,9 +32,13 @@ def test_simulate_month_endpoint_succeeds():
     assert "avg_utilization" in body
     assert "peak_utilization" in body
     assert "remaining_capacity" in body
+    assert "benchmark_comparison" in body
     # JSON object keys always arrive as strings, even though the Python side
     # keys this dict by int cluster id.
-    assert set(body["remaining_capacity"].keys()) == {"1", "2", "3"}
+    assert set(body["remaining_capacity"].keys()) == {str(i) for i in range(1, 11)}
+    assert {row["policy"] for row in body["benchmark_comparison"]}.issuperset(
+        {"student_policy", "greedy_first_fit", "least_loaded", "best_fit", "vip_only"}
+    )
 
 
 def test_simulate_month_endpoint_defaults_previous_months_to_empty():

@@ -17,6 +17,7 @@ from app.services.baseline_policies import (
     best_fit_policy,
     greedy_first_fit_policy,
     least_loaded_policy,
+    vip_only_policy,
 )
 from app.services.simulation_engine import DEFAULT_SEED, run_full_simulation
 
@@ -113,6 +114,22 @@ def test_best_fit_tie_break_is_lowest_cluster_id():
 def test_best_fit_returns_zero_when_no_cluster_feasible():
     state = _state({1: 2, 2: 3, 3: 1})
     assert best_fit_policy(_request(10), state, {}, {}) == 0
+
+
+# ---------------------------------------------------------------------------
+# VIP-Only
+# ---------------------------------------------------------------------------
+
+
+def test_vip_only_accepts_feasible_vip_request():
+    state = _state({1: 5, 2: 20, 3: 12})
+    request = {"type": "VIP", "required_units": 10, "arrival_time": 0.0}
+    assert vip_only_policy(request, state, {}, {}) == 3
+
+
+def test_vip_only_rejects_non_vip_requests():
+    state = _state({1: 100, 2: 100, 3: 100})
+    assert vip_only_policy(_request(10), state, {}, {}) == 0
 
 
 # ---------------------------------------------------------------------------

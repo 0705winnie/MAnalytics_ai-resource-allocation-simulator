@@ -28,6 +28,10 @@ def test_simulate_endpoint_succeeds_without_seed():
     assert len(body["monthly"]) == 12
     assert "total_unfinished_requests" in body
     assert "total_unfinished_value" in body
+    assert "benchmark_comparison" in body
+    assert {row["policy"] for row in body["benchmark_comparison"]}.issuperset(
+        {"student_policy", "greedy_first_fit", "least_loaded", "best_fit", "vip_only"}
+    )
 
 
 def test_simulate_endpoint_rejects_client_provided_seed():
