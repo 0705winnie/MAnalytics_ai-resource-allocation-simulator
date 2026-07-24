@@ -27,7 +27,7 @@ backend/app/
     prompt_templates.py          # System prompt builder (injects live dashboard context)
     policy_sandbox.py            # Restricted exec() of a student's admission_policy code
     simulation_engine.py         # Poisson arrivals, Gamma service times, capacity/departure tracking
-    baseline_policies.py         # 6 benchmark policies for student-policy comparison
+    baseline_policies.py         # 7 benchmark policies for student-policy comparison
 backend/tests/                  # pytest suite for the engine, sandbox, benchmarks, both endpoints
 
 src/
