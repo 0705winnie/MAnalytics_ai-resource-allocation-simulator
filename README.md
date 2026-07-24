@@ -128,6 +128,28 @@ docker compose down --volumes
 The Compose file runs PostgreSQL only. The frontend and backend continue to run
 as local processes.
 
+### Local development instructor
+
+The development instructor account is only for local development. Add its
+credentials to the gitignored root `.env`; never commit that file:
+
+```text
+DEV_INSTRUCTOR_USERNAME=
+DEV_INSTRUCTOR_PASSWORD=
+```
+
+After applying migrations, run the idempotent seed from `backend/`:
+
+```bash
+python -m scripts.seed_instructor
+```
+
+The username is trimmed and normalized to lowercase. Re-running the seed does
+not create a duplicate account and does not reset an existing instructor
+password. The development password must contain at least 12 characters. If the
+username already belongs to a student or a disabled instructor, the seed fails
+without changing that user.
+
 ## Running locally
 
 Two processes, run in separate terminals from the repo root:

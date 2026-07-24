@@ -3,7 +3,7 @@
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import field_validator
+from pydantic import SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import make_url
 
@@ -31,8 +31,35 @@ class DatabaseSettings(BaseSettings):
         return value
 
 
+class DevelopmentInstructorSettings(BaseSettings):
+    """Optional local seed settings, required only by the seed command."""
+
+    model_config = SettingsConfigDict(
+        env_file=PROJECT_ROOT / ".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    dev_instructor_username: str | None = None
+    dev_instructor_password: SecretStr | None = None
+
+    @field_validator("dev_instructor_username", mode="before")
+    @classmethod
+    def normalize_username(cls, value: object) -> object:
+        if not isinstance(value, str):
+            return value
+        normalized = value.strip().lower()
+        return normalized or None
+
+
 @lru_cache
 def get_database_settings() -> DatabaseSettings:
     """Return one validated settings object per application process."""
 
     return DatabaseSettings()
+
+
+def get_development_instructor_settings() -> DevelopmentInstructorSettings:
+    """Load optional local instructor seed settings without caching secrets."""
+
+    return DevelopmentInstructorSettings()
