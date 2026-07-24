@@ -108,6 +108,18 @@ def vip_priority_policy(request: dict, state: dict, history: dict, params: dict)
     return best_cluster
 
 
+def vip_only_policy(request: dict, state: dict, history: dict, params: dict) -> int:
+    """
+    Admit only VIP requests and reject all standard/economy requests.
+
+    This mirrors one of the Workstream A calibration checks and gives the
+    dashboard a clear high-priority benchmark for comparison.
+    """
+    if request["type"] != "VIP":
+        return 0
+    return best_fit_policy(request, state, history, params)
+
+
 def revenue_density_policy(request: dict, state: dict, history: dict, params: dict) -> int:
     """
     Admit work based on expected revenue per capacity-hour.
@@ -144,5 +156,6 @@ BASELINE_POLICIES: Dict[str, Callable[[dict, dict, dict, dict], int]] = {
     "least_loaded": least_loaded_policy,
     "best_fit": best_fit_policy,
     "vip_priority": vip_priority_policy,
+    "vip_only": vip_only_policy,
     "revenue_density": revenue_density_policy,
 }
