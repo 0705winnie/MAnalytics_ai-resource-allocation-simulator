@@ -5,7 +5,6 @@ Registers routes, sets up CORS, and loads the .env file.
 Run with:  cd backend && python3 -m uvicorn app.main:app --reload
 """
 
-import os
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -15,37 +14,38 @@ from fastapi.middleware.cors import CORSMiddleware
 # Load .env from the project root (two levels above this file)
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
-from app.routers import ai_assistant, simulate  # noqa: E402 — import after dotenv load
-
-app = FastAPI(
-    title="Resource Allocation Simulator API",
-    version="0.1.0",
-)
-
-# Allow the Vite dev server (5173) and preview server (4173).
-# Override with CORS_ALLOW_ORIGINS env var for deployment.
-_default_origins = (
-    "http://localhost:5173,http://127.0.0.1:5173,"
-    "http://localhost:4173,http://127.0.0.1:4173"
-)
-_origins = [
-    o.strip()
-    for o in os.environ.get("CORS_ALLOW_ORIGINS", _default_origins).split(",")
-    if o.strip()
-]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-app.include_router(ai_assistant.router)
-app.include_router(simulate.router)
+from app.core.config import AuthSettings, get_auth_settings  # noqa: E402
+from app.routers import ai_assistant, auth, simulate  # noqa: E402
 
 
-@app.get("/health")
-def health_check() -> dict[str, str]:
-    return {"status": "ok"}
+def create_app(auth_settings: AuthSettings | None = None) -> FastAPI:
+    """Build the API with one explicit credentialed frontend origin."""
+
+    settings = auth_settings or get_auth_settings()
+    api = FastAPI(
+        title="Resource Allocation Simulator API",
+        version="0.1.0",
+    )
+
+    api.add_middleware(
+        CORSMiddleware,
+        allow_origins=[settings.frontend_origin],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    api.include_router(ai_assistant.router)
+    api.include_router(simulate.router)
+    api.include_router(auth.router, prefix="/api")
+    # Vite strips the browser-facing /api prefix before proxying locally.
+    api.include_router(auth.router, include_in_schema=False)
+
+    @api.get("/health")
+    def health_check() -> dict[str, str]:
+        return {"status": "ok"}
+
+    return api
+
+
+app = create_app()

@@ -28,6 +28,11 @@ def test_same_password_produces_distinct_valid_hashes():
     assert verify_password(password, second_hash) is True
 
 
+def test_unknown_or_damaged_password_hash_returns_false():
+    assert verify_password("candidate-password", "not-a-valid-password-hash") is False
+    assert verify_password("candidate-password", "$argon2id$damaged") is False
+
+
 def test_one_time_secret_is_hashed_and_verifiable():
     secret = "single-use-activation-value"
 

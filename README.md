@@ -150,6 +150,29 @@ password. The development password must contain at least 12 characters. If the
 username already belongs to a student or a disabled instructor, the seed fails
 without changing that user.
 
+### Instructor authentication
+
+Set a random `JWT_SECRET` of at least 32 characters in the gitignored root
+`.env`; never commit that file. Access tokens expire after 30 minutes by
+default, configurable with `ACCESS_TOKEN_MINUTES`.
+
+For local HTTP development, use:
+
+```text
+AUTH_COOKIE_SECURE=false
+FRONTEND_ORIGIN=http://localhost:5173
+```
+
+HTTPS deployments must set `AUTH_COOKIE_SECURE=true`. The API stores the access
+token only in an HttpOnly, SameSite=Lax cookie. Future state-changing APIs that
+use this cookie must continue to evaluate and implement appropriate CSRF
+protection.
+
+Browser clients use `/api/auth/*`. The existing Vite development proxy removes
+the `/api` prefix before forwarding requests, so FastAPI also registers the
+internal `/auth/*` compatibility paths. These are two paths to the same
+authentication handlers, not separate authentication systems.
+
 ## Running locally
 
 Two processes, run in separate terminals from the repo root:

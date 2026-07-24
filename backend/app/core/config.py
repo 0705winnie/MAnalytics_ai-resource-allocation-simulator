@@ -2,8 +2,9 @@
 
 from functools import lru_cache
 from pathlib import Path
+from urllib.parse import urlparse
 
-from pydantic import SecretStr, field_validator
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import make_url
 
@@ -52,6 +53,40 @@ class DevelopmentInstructorSettings(BaseSettings):
         return normalized or None
 
 
+class AuthSettings(BaseSettings):
+    """Authentication and credentialed frontend settings."""
+
+    model_config = SettingsConfigDict(
+        env_file=PROJECT_ROOT / ".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    jwt_secret: SecretStr | None = None
+    auth_cookie_secure: bool = False
+    access_token_minutes: int = Field(default=30, ge=5, le=1440)
+    frontend_origin: str = "http://localhost:5173"
+
+    @field_validator("frontend_origin")
+    @classmethod
+    def require_specific_http_origin(cls, value: str) -> str:
+        origin = value.strip().rstrip("/")
+        parsed = urlparse(origin)
+        if (
+            origin == "*"
+            or parsed.scheme not in {"http", "https"}
+            or not parsed.netloc
+            or parsed.path not in {"", "/"}
+            or parsed.params
+            or parsed.query
+            or parsed.fragment
+        ):
+            raise ValueError(
+                "FRONTEND_ORIGIN must be one explicit HTTP or HTTPS origin"
+            )
+        return origin
+
+
 @lru_cache
 def get_database_settings() -> DatabaseSettings:
     """Return one validated settings object per application process."""
@@ -63,3 +98,10 @@ def get_development_instructor_settings() -> DevelopmentInstructorSettings:
     """Load optional local instructor seed settings without caching secrets."""
 
     return DevelopmentInstructorSettings()
+
+
+@lru_cache
+def get_auth_settings() -> AuthSettings:
+    """Return authentication settings without exposing secret values."""
+
+    return AuthSettings()
