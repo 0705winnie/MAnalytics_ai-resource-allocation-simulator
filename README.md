@@ -74,6 +74,47 @@ pip install -r backend/requirements.txt
 npm install
 ```
 
+### PostgreSQL for local development
+
+Copy `.env.example` to `.env` and replace the development-only database
+password before sharing or deploying the environment. `DATABASE_URL` is the
+SQLAlchemy connection string used by the backend; it must use the
+`postgresql+psycopg` driver and correspond to `POSTGRES_DB`, `POSTGRES_USER`,
+`POSTGRES_PASSWORD`, and `POSTGRES_PORT`. The team-default host port is `5432`.
+
+Before changing or stopping anything already using port `5432`, identify that
+service and confirm whether it contains data that must be preserved. Developers
+who already have a service on that port can set:
+
+```text
+POSTGRES_PORT=55432
+```
+
+When overriding the port, `DATABASE_URL` must use the same host port.
+
+Start PostgreSQL and check its health:
+
+```bash
+docker compose up -d db
+docker compose ps
+```
+
+Stop PostgreSQL without deleting its data:
+
+```bash
+docker compose down
+```
+
+Delete the named development volume only when intentionally resetting all
+local database data:
+
+```bash
+docker compose down --volumes
+```
+
+The Compose file runs PostgreSQL only. The frontend and backend continue to run
+as local processes.
+
 ## Running locally
 
 Two processes, run in separate terminals from the repo root:
