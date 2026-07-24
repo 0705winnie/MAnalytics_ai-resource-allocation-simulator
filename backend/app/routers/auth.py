@@ -15,6 +15,7 @@ from app.core.auth import (
     create_access_token,
     get_current_user,
 )
+from app.core.activation_auth import ACTIVATION_COOKIE_NAME
 from app.core.config import AuthSettings, get_auth_settings
 from app.core.security import hash_password, verify_password
 from app.db.session import get_db
@@ -134,6 +135,13 @@ def logout(
 
     response.delete_cookie(
         key=ACCESS_COOKIE_NAME,
+        path="/",
+        secure=settings.auth_cookie_secure,
+        httponly=True,
+        samesite="lax",
+    )
+    response.delete_cookie(
+        key=ACTIVATION_COOKIE_NAME,
         path="/",
         secure=settings.auth_cookie_secure,
         httponly=True,

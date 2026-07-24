@@ -43,7 +43,9 @@ class AccessTokenClaims:
     token_id: uuid.UUID
 
 
-def _jwt_secret(settings: AuthSettings) -> str:
+def get_jwt_secret(settings: AuthSettings) -> str:
+    """Return a validated signing secret without exposing it."""
+
     secret_setting = settings.jwt_secret
     secret = secret_setting.get_secret_value() if secret_setting else ""
     if len(secret) < 32:
@@ -53,7 +55,9 @@ def _jwt_secret(settings: AuthSettings) -> str:
     return secret
 
 
-def _utc_now(now: datetime | None) -> datetime:
+def auth_utc_now(now: datetime | None) -> datetime:
+    """Return one timezone-aware UTC authentication timestamp."""
+
     current_time = now if now is not None else datetime.now(UTC)
     if current_time.tzinfo is None or current_time.utcoffset() is None:
         raise AuthConfigurationError("Authentication timestamps must be timezone-aware")
@@ -68,8 +72,8 @@ def create_access_token(
 ) -> str:
     """Create a signed access token containing only authorization claims."""
 
-    secret = _jwt_secret(settings)
-    issued_at = _utc_now(now)
+    secret = get_jwt_secret(settings)
+    issued_at = auth_utc_now(now)
     expires_at = issued_at + timedelta(minutes=settings.access_token_minutes)
     payload = {
         "sub": str(user_id),
@@ -93,7 +97,7 @@ def decode_access_token(
     try:
         payload = jwt.decode(
             token,
-            _jwt_secret(settings),
+            get_jwt_secret(settings),
             algorithms=[JWT_ALGORITHM],
             audience=JWT_AUDIENCE,
             issuer=JWT_ISSUER,

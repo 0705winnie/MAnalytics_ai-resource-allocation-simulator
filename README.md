@@ -222,6 +222,20 @@ students must use the future password-reset flow instead of being reactivated.
 The Vite proxy exposes the same handlers without the browser-facing `/api`
 prefix.
 
+### Student activation verification
+
+`POST /api/auth/activate/verify` validates an active course, pending student
+enrollment, and its one-time activation code. Successful verification sets a
+separate HttpOnly, SameSite=Lax `ra_activation_token` cookie for 10 minutes by
+default (`ACTIVATION_TOKEN_MINUTES`, allowed range 5–30). The token is bound to
+the current activation-code hash, so regenerating, consuming, or clearing the
+code immediately invalidates an older activation session. It does not create a
+normal access session or consume the activation code.
+
+Production deployments must rate-limit activation verification at the reverse
+proxy or a shared-storage enforcement layer. A process-local counter is not
+complete protection for multiple application instances.
+
 ## Running locally
 
 Two processes, run in separate terminals from the repo root:

@@ -17,6 +17,7 @@ load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 from app.core.config import AuthSettings, get_auth_settings  # noqa: E402
 from app.routers import (  # noqa: E402
     ai_assistant,
+    activation,
     auth,
     instructor_courses,
     instructor_enrollments,
@@ -47,6 +48,8 @@ def create_app(auth_settings: AuthSettings | None = None) -> FastAPI:
     api.include_router(auth.router, prefix="/api")
     # Vite strips the browser-facing /api prefix before proxying locally.
     api.include_router(auth.router, include_in_schema=False)
+    api.include_router(activation.router, prefix="/api")
+    api.include_router(activation.router, include_in_schema=False)
     api.include_router(instructor_courses.router, prefix="/api")
     api.include_router(instructor_courses.router, include_in_schema=False)
     api.include_router(instructor_roster.router, prefix="/api")

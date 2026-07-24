@@ -65,6 +65,7 @@ class AuthSettings(BaseSettings):
     jwt_secret: SecretStr | None = None
     auth_cookie_secure: bool = False
     access_token_minutes: int = Field(default=30, ge=5, le=1440)
+    activation_token_minutes: int = Field(default=10, ge=5, le=30)
     frontend_origin: str = "http://localhost:5173"
 
     @field_validator("frontend_origin")

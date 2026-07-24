@@ -28,7 +28,9 @@ def _utc_now(now: datetime | None) -> datetime:
     return current_time.astimezone(UTC)
 
 
-def _normalized_code(submitted_code: str) -> str | None:
+def normalize_activation_code(submitted_code: str) -> str | None:
+    """Normalize accepted user input without weakening the code alphabet."""
+
     normalized = submitted_code.strip().replace("-", "").upper()
     if (
         len(normalized) != ACTIVATION_CODE_LENGTH
@@ -78,7 +80,7 @@ def _store_activation_code(
     activation_code: str,
     current_time: datetime,
 ) -> str:
-    normalized_code = _normalized_code(activation_code)
+    normalized_code = normalize_activation_code(activation_code)
     if normalized_code is None:
         raise ActivationCodeError("Secure activation code generation failed")
 
@@ -116,7 +118,7 @@ def regenerate_activation_code(
 
     while True:
         activation_code = generate_activation_code()
-        normalized_code = _normalized_code(activation_code)
+        normalized_code = normalize_activation_code(activation_code)
         if normalized_code is None:
             raise ActivationCodeError("Secure activation code generation failed")
         if previous_hash is not None:
@@ -146,7 +148,7 @@ def verify_activation_code(
     if not _stored_expiration_is_valid(enrollment, current_time):
         return False
 
-    normalized_code = _normalized_code(submitted_code)
+    normalized_code = normalize_activation_code(submitted_code)
     if normalized_code is None:
         return False
 
