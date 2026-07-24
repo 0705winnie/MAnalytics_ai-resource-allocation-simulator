@@ -19,6 +19,7 @@ from app.routers import (  # noqa: E402
     ai_assistant,
     auth,
     instructor_courses,
+    instructor_enrollments,
     instructor_roster,
     simulate,
 )
@@ -50,6 +51,8 @@ def create_app(auth_settings: AuthSettings | None = None) -> FastAPI:
     api.include_router(instructor_courses.router, include_in_schema=False)
     api.include_router(instructor_roster.router, prefix="/api")
     api.include_router(instructor_roster.router, include_in_schema=False)
+    api.include_router(instructor_enrollments.router, prefix="/api")
+    api.include_router(instructor_enrollments.router, include_in_schema=False)
 
     @api.get("/health")
     def health_check() -> dict[str, str]:

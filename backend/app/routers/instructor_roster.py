@@ -6,14 +6,14 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
-from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.auth import require_instructor
 from app.db.session import get_db
-from app.models import CourseInstance, User
+from app.models import User
 from app.routers.instructor_courses import COURSE_NOT_FOUND_MESSAGE
+from app.services.instructor_enrollments import find_owned_course
 from app.services.roster_imports import (
     MAX_ROSTER_BYTES,
     RosterCsvError,
@@ -37,12 +37,7 @@ async def import_course_roster(
 ) -> Response:
     """Import one owned active course roster and return its codes once."""
 
-    course = db.scalar(
-        select(CourseInstance).where(
-            CourseInstance.id == course_id,
-            CourseInstance.created_by == instructor.id,
-        )
-    )
+    course = find_owned_course(db, course_id, instructor.id)
     if course is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

@@ -234,11 +234,11 @@ def render_roster_csv(rows: list[RosterImportRow]) -> str:
     for row in rows:
         writer.writerow(
             [
-                _spreadsheet_safe(row.berkeley_username),
-                _spreadsheet_safe(row.course_code),
-                _spreadsheet_safe(row.activation_code),
-                _spreadsheet_safe(row.status.value),
-                _spreadsheet_safe(row.message),
+                spreadsheet_safe_csv_cell(row.berkeley_username),
+                spreadsheet_safe_csv_cell(row.course_code),
+                spreadsheet_safe_csv_cell(row.activation_code),
+                spreadsheet_safe_csv_cell(row.status.value),
+                spreadsheet_safe_csv_cell(row.message),
             ]
         )
     return output.getvalue()
@@ -268,5 +268,7 @@ def _result(
     )
 
 
-def _spreadsheet_safe(value: str) -> str:
+def spreadsheet_safe_csv_cell(value: str) -> str:
+    """Prevent exported values from being interpreted as spreadsheet formulas."""
+
     return f"'{value}" if value.startswith(_FORMULA_PREFIXES) else value

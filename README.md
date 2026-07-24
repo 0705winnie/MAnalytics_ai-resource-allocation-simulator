@@ -206,6 +206,22 @@ The Vite proxy removes `/api`, so the backend also exposes the same handler at
 `/instructor/courses/{course_id}/roster/import` without duplicating the import
 system.
 
+### Instructor enrollment management
+
+Instructors can list students in an owned course and manage each course
+enrollment through `/api/instructor/courses/{course_id}`. Disabling an
+enrollment affects only that course and never disables the global user or the
+student's enrollment in another course. Restoring a previously activated
+enrollment returns it to `active`; an enrollment without a recorded activation
+returns to `pending` without automatically issuing a code.
+
+Activation codes can only be regenerated for pending students. Regeneration
+immediately invalidates the old code, restarts the 14-day validity period, and
+returns the new plaintext code once in a non-cacheable CSV download. Active
+students must use the future password-reset flow instead of being reactivated.
+The Vite proxy exposes the same handlers without the browser-facing `/api`
+prefix.
+
 ## Running locally
 
 Two processes, run in separate terminals from the repo root:
