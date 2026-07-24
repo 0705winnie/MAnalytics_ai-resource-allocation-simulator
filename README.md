@@ -173,6 +173,13 @@ the `/api` prefix before forwarding requests, so FastAPI also registers the
 internal `/auth/*` compatibility paths. These are two paths to the same
 authentication handlers, not separate authentication systems.
 
+Authenticated instructors can create and list course instances through
+`/api/instructor/courses`, then retrieve an owned course by ID. Instructors can
+only see courses they created. Course codes are globally unique without regard
+to letter case or surrounding whitespace. As with authentication, Vite removes
+the browser-facing `/api` prefix and forwards these requests to the same hidden
+`/instructor/courses` compatibility handlers.
+
 ## Running locally
 
 Two processes, run in separate terminals from the repo root:
