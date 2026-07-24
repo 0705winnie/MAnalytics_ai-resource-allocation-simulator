@@ -30,6 +30,7 @@ const POLICY_LABELS: Record<string, string> = {
   least_loaded: 'Least loaded',
   best_fit: 'Best fit',
   vip_priority: 'VIP priority',
+  vip_only: 'VIP only',
   revenue_density: 'Revenue density',
 }
 
