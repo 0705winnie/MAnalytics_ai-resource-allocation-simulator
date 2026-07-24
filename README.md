@@ -91,6 +91,8 @@ POSTGRES_PORT=55432
 ```
 
 When overriding the port, `DATABASE_URL` must use the same host port.
+`TEST_DATABASE_URL` is the separate connection string used by destructive
+database integration tests and must use that host port as well.
 
 Start PostgreSQL and check its health:
 
@@ -98,6 +100,17 @@ Start PostgreSQL and check its health:
 docker compose up -d db
 docker compose ps
 ```
+
+Create the dedicated test database idempotently:
+
+```bash
+docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname = '\''resource_allocation_test'\''" | grep -q 1 || createdb -U "$POSTGRES_USER" -O "$POSTGRES_USER" resource_allocation_test'
+```
+
+Destructive database tests refuse to run unless the database name in
+`TEST_DATABASE_URL` ends exactly in `_test`. Never point `TEST_DATABASE_URL` at
+the development database, a production database, or any database whose data
+must be retained.
 
 Stop PostgreSQL without deleting its data:
 
