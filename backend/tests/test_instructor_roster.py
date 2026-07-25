@@ -480,7 +480,26 @@ def test_authentication_and_instructor_role_are_enforced(
         STUDENT,
         role=UserRole.STUDENT,
     )
-    _authenticate(client, student, auth_settings)
+    enrollment = Enrollment(
+        course_id=course.id,
+        user_id=student.id,
+        nickname="Roster Student",
+        status=EnrollmentStatus.ACTIVE,
+        activation_used_at=datetime.now(UTC),
+    )
+    with roster_session_factory() as session:
+        session.add(enrollment)
+        session.commit()
+    client.cookies.set(
+        ACCESS_COOKIE_NAME,
+        create_access_token(
+            student.id,
+            student.role,
+            auth_settings,
+            course_id=course.id,
+            enrollment_id=enrollment.id,
+        ),
+    )
     forbidden = _upload(client, course, content)
     client.cookies.clear()
     inactive = _create_user(

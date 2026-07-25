@@ -11,9 +11,10 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import (
     ACCESS_COOKIE_NAME,
+    AuthContext,
     AuthConfigurationError,
     create_access_token,
-    get_current_user,
+    get_auth_context,
 )
 from app.core.activation_auth import ACTIVATION_COOKIE_NAME
 from app.core.config import AuthSettings, get_auth_settings
@@ -21,6 +22,11 @@ from app.core.security import hash_password, verify_password
 from app.db.session import get_db
 from app.models import User
 from app.models.enums import UserRole
+from app.schemas.auth import (
+    AuthenticatedCourseResponse,
+    AuthenticatedUserResponse,
+    AuthenticationResponse,
+)
 
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -40,25 +46,29 @@ class InstructorLoginRequest(BaseModel):
         return value.strip() if isinstance(value, str) else value
 
 
-class AuthenticatedUserResponse(BaseModel):
-    id: str
-    username: str
-    role: UserRole
-
-
-class AuthenticationResponse(BaseModel):
-    authenticated: bool
-    user: AuthenticatedUserResponse
-
-
-def _user_response(user: User) -> AuthenticationResponse:
+def _authentication_response(
+    user: User,
+    *,
+    context: AuthContext | None = None,
+) -> AuthenticationResponse:
+    course = context.course if context is not None else None
+    enrollment = context.enrollment if context is not None else None
     return AuthenticationResponse(
         authenticated=True,
         user=AuthenticatedUserResponse(
-            id=str(user.id),
+            id=user.id,
             username=user.berkeley_username,
             role=user.role,
         ),
+        course=(
+            AuthenticatedCourseResponse(
+                id=course.id,
+                course_code=course.course_code,
+            )
+            if course is not None
+            else None
+        ),
+        nickname=enrollment.nickname if enrollment is not None else None,
     )
 
 
@@ -69,7 +79,11 @@ def _invalid_credentials() -> HTTPException:
     )
 
 
-@router.post("/instructor/login", response_model=AuthenticationResponse)
+@router.post(
+    "/instructor/login",
+    response_model=AuthenticationResponse,
+    response_model_exclude_none=True,
+)
 def instructor_login(
     request: InstructorLoginRequest,
     response: Response,
@@ -114,16 +128,20 @@ def instructor_login(
         samesite="lax",
         path="/",
     )
-    return _user_response(user)
+    return _authentication_response(user)
 
 
-@router.get("/me", response_model=AuthenticationResponse)
+@router.get(
+    "/me",
+    response_model=AuthenticationResponse,
+    response_model_exclude_none=True,
+)
 def current_identity(
-    current_user: Annotated[User, Depends(get_current_user)],
+    context: Annotated[AuthContext, Depends(get_auth_context)],
 ) -> AuthenticationResponse:
     """Return the minimal current identity after DB-backed validation."""
 
-    return _user_response(current_user)
+    return _authentication_response(context.user, context=context)
 
 
 @router.post("/logout")

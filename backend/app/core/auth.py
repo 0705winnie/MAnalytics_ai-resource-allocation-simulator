@@ -10,12 +10,13 @@ from typing import Annotated
 import jwt
 from fastapi import Cookie, Depends, HTTPException, status
 from jwt import PyJWTError
-from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.orm import Session, contains_eager
 
 from app.core.config import AuthSettings, get_auth_settings
 from app.db.session import get_db
-from app.models import User
-from app.models.enums import UserRole
+from app.models import CourseInstance, Enrollment, User
+from app.models.enums import EnrollmentStatus, UserRole
 
 
 ACCESS_COOKIE_NAME = "ra_access_token"
@@ -38,9 +39,18 @@ class InvalidAccessTokenError(RuntimeError):
 class AccessTokenClaims:
     user_id: uuid.UUID
     role: UserRole
+    course_id: uuid.UUID | None
+    enrollment_id: uuid.UUID | None
     issued_at: int
     expires_at: int
     token_id: uuid.UUID
+
+
+@dataclass(frozen=True)
+class AuthContext:
+    user: User
+    course: CourseInstance | None = None
+    enrollment: Enrollment | None = None
 
 
 def get_jwt_secret(settings: AuthSettings) -> str:
@@ -69,8 +79,20 @@ def create_access_token(
     role: UserRole,
     settings: AuthSettings,
     now: datetime | None = None,
+    *,
+    course_id: uuid.UUID | None = None,
+    enrollment_id: uuid.UUID | None = None,
 ) -> str:
     """Create a signed access token containing only authorization claims."""
+
+    if role == UserRole.INSTRUCTOR:
+        if course_id is not None or enrollment_id is not None:
+            raise ValueError("Instructor access tokens cannot be course-scoped")
+    elif role == UserRole.STUDENT:
+        if course_id is None or enrollment_id is None:
+            raise ValueError("Student access tokens must be course-scoped")
+    else:
+        raise ValueError("Unsupported access token role")
 
     secret = get_jwt_secret(settings)
     issued_at = auth_utc_now(now)
@@ -85,6 +107,9 @@ def create_access_token(
         "iss": JWT_ISSUER,
         "aud": JWT_AUDIENCE,
     }
+    if role == UserRole.STUDENT:
+        payload["course_id"] = str(course_id)
+        payload["enrollment_id"] = str(enrollment_id)
     return jwt.encode(payload, secret, algorithm=JWT_ALGORITHM)
 
 
@@ -116,9 +141,26 @@ def decode_access_token(
         )
         if payload["type"] != ACCESS_TOKEN_TYPE:
             raise ValueError
+        role = UserRole(payload["role"])
+        raw_course_id = payload.get("course_id")
+        raw_enrollment_id = payload.get("enrollment_id")
+        if role == UserRole.INSTRUCTOR:
+            if raw_course_id is not None or raw_enrollment_id is not None:
+                raise ValueError
+            course_id = None
+            enrollment_id = None
+        elif role == UserRole.STUDENT:
+            if raw_course_id is None or raw_enrollment_id is None:
+                raise ValueError
+            course_id = uuid.UUID(raw_course_id)
+            enrollment_id = uuid.UUID(raw_enrollment_id)
+        else:
+            raise ValueError
         return AccessTokenClaims(
             user_id=uuid.UUID(payload["sub"]),
-            role=UserRole(payload["role"]),
+            role=role,
+            course_id=course_id,
+            enrollment_id=enrollment_id,
             issued_at=int(payload["iat"]),
             expires_at=int(payload["exp"]),
             token_id=uuid.UUID(payload["jti"]),
@@ -136,15 +178,15 @@ def _authentication_required() -> HTTPException:
     )
 
 
-def get_current_user(
+def get_auth_context(
     db: Annotated[Session, Depends(get_db)],
     settings: Annotated[AuthSettings, Depends(get_auth_settings)],
     access_token: Annotated[
         str | None,
         Cookie(alias=ACCESS_COOKIE_NAME),
     ] = None,
-) -> User:
-    """Resolve identity exclusively from a verified cookie and current DB row."""
+) -> AuthContext:
+    """Resolve one database-backed Instructor or course-scoped Student."""
 
     if access_token is None:
         raise _authentication_required()
@@ -153,14 +195,56 @@ def get_current_user(
     except (AuthConfigurationError, InvalidAccessTokenError):
         raise _authentication_required() from None
 
-    user = db.get(User, claims.user_id)
+    if claims.role == UserRole.INSTRUCTOR:
+        user = db.get(User, claims.user_id)
+        if (
+            user is None
+            or not user.is_active
+            or user.role != UserRole.INSTRUCTOR
+        ):
+            raise _authentication_required()
+        return AuthContext(user=user)
+
+    enrollment = db.scalar(
+        select(Enrollment)
+        .join(User, Enrollment.user_id == User.id)
+        .join(CourseInstance, Enrollment.course_id == CourseInstance.id)
+        .where(
+            Enrollment.id == claims.enrollment_id,
+            Enrollment.user_id == claims.user_id,
+            Enrollment.course_id == claims.course_id,
+            User.id == claims.user_id,
+            CourseInstance.id == claims.course_id,
+        )
+        .options(
+            contains_eager(Enrollment.user),
+            contains_eager(Enrollment.course),
+        )
+    )
     if (
-        user is None
-        or not user.is_active
-        or user.role != claims.role
+        enrollment is None
+        or not enrollment.user.is_active
+        or enrollment.user.role != UserRole.STUDENT
+        or not enrollment.course.is_active
+        or enrollment.status != EnrollmentStatus.ACTIVE
+        or enrollment.nickname is None
+        or enrollment.activation_used_at is None
+        or enrollment.activation_code_hash is not None
     ):
         raise _authentication_required()
-    return user
+    return AuthContext(
+        user=enrollment.user,
+        course=enrollment.course,
+        enrollment=enrollment,
+    )
+
+
+def get_current_user(
+    context: Annotated[AuthContext, Depends(get_auth_context)],
+) -> User:
+    """Return the user from a fully validated authentication context."""
+
+    return context.user
 
 
 def require_instructor(

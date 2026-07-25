@@ -29,8 +29,8 @@ from app.core.config import AuthSettings
 from app.core.security import hash_password
 from app.db.session import get_db
 from app.main import create_app
-from app.models import User
-from app.models.enums import UserRole
+from app.models import CourseInstance, Enrollment, User
+from app.models.enums import EnrollmentStatus, UserRole
 from app.routers import auth as auth_router
 
 
@@ -66,6 +66,8 @@ def _clear_auth_users(
     assert test_database_url.database is not None
     assert test_database_url.database.endswith("_test")
     with session_factory() as session:
+        session.execute(delete(Enrollment))
+        session.execute(delete(CourseInstance))
         session.execute(
             delete(User).where(User.berkeley_username.in_(AUTH_USERNAMES))
         )
@@ -457,6 +459,8 @@ def test_token_role_must_match_database_role(
         user.id,
         UserRole.STUDENT,
         auth_settings,
+        course_id=uuid.uuid4(),
+        enrollment_id=uuid.uuid4(),
     )
     client.cookies.set(ACCESS_COOKIE_NAME, mismatched_token)
 
@@ -476,10 +480,29 @@ def test_require_instructor_rejects_authenticated_student(
         username="auth-student",
         role=UserRole.STUDENT,
     )
+    instructor = _create_user(auth_session_factory)
+    course = CourseInstance(
+        course_code="IEOR150-AuthStudent",
+        course_name="Authentication Test",
+        semester="Fall 2026",
+        created_by=instructor.id,
+    )
+    enrollment = Enrollment(
+        course=course,
+        user_id=student.id,
+        nickname="Auth Student",
+        status=EnrollmentStatus.ACTIVE,
+        activation_used_at=datetime.now(UTC),
+    )
+    with auth_session_factory() as session:
+        session.add(enrollment)
+        session.commit()
     student_token = create_access_token(
         student.id,
         student.role,
         auth_settings,
+        course_id=course.id,
+        enrollment_id=enrollment.id,
     )
     client.cookies.set(ACCESS_COOKIE_NAME, student_token)
 

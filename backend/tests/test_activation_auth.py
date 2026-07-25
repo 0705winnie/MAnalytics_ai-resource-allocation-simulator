@@ -279,6 +279,7 @@ def test_valid_credentials_normalize_inputs_set_cookie_and_do_not_consume_code(
     assert response.json() == {
         "verified": True,
         "expires_in_seconds": 600,
+        "password_mode": "create",
     }
     assert verify_calls == 1
     assert ACTIVATION_COOKIE_NAME in response.cookies

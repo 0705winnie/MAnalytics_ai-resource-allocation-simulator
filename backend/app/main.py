@@ -8,8 +8,10 @@ Run with:  cd backend && python3 -m uvicorn app.main:app --reload
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 # Load .env from the project root (two levels above this file)
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
@@ -42,6 +44,26 @@ def create_app(auth_settings: AuthSettings | None = None) -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    @api.exception_handler(RequestValidationError)
+    async def safe_validation_error(
+        _request: Request,
+        exc: RequestValidationError,
+    ) -> JSONResponse:
+        """Return useful validation locations without echoing submitted secrets."""
+
+        safe_errors = [
+            {
+                key: value
+                for key, value in error.items()
+                if key not in {"input", "ctx"}
+            }
+            for error in exc.errors()
+        ]
+        return JSONResponse(
+            status_code=422,
+            content={"detail": safe_errors},
+        )
 
     api.include_router(ai_assistant.router)
     api.include_router(simulate.router)

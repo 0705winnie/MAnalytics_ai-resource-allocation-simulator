@@ -17,7 +17,7 @@ from app.core.config import AuthSettings, get_auth_settings
 from app.db.session import get_db
 from app.main import create_app
 from app.models import CourseInstance, Enrollment, User
-from app.models.enums import UserRole
+from app.models.enums import EnrollmentStatus, UserRole
 
 
 TEST_JWT_SECRET = "test-only-course-api-signing-secret-32-characters"
@@ -328,7 +328,37 @@ def test_student_cannot_create_course(
         username=STUDENT,
         role=UserRole.STUDENT,
     )
-    _authenticate(client, student, auth_settings)
+    owner = _create_user(
+        course_session_factory,
+        username=INSTRUCTOR_A,
+    )
+    course = _create_course(
+        course_session_factory,
+        owner=owner,
+        course_id=uuid.uuid4(),
+        code="IEOR150-StudentScope",
+        created_at=datetime.now(UTC),
+    )
+    enrollment = Enrollment(
+        course_id=course.id,
+        user_id=student.id,
+        nickname="Course Student",
+        status=EnrollmentStatus.ACTIVE,
+        activation_used_at=datetime.now(UTC),
+    )
+    with course_session_factory() as session:
+        session.add(enrollment)
+        session.commit()
+    client.cookies.set(
+        ACCESS_COOKIE_NAME,
+        create_access_token(
+            student.id,
+            student.role,
+            auth_settings,
+            course_id=course.id,
+            enrollment_id=enrollment.id,
+        ),
+    )
 
     response = client.post(
         "/api/instructor/courses",

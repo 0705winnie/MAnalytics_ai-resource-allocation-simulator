@@ -884,7 +884,24 @@ def test_authentication_role_and_uuid_validation(
         f"/api/instructor/courses/{course.id}/students"
     )
     student = _create_user(enrollment_session_factory, "auth-student")
-    _authenticate(client, student, auth_settings)
+    student_enrollment, _ = _create_enrollment(
+        enrollment_session_factory,
+        course,
+        student,
+        status=EnrollmentStatus.ACTIVE,
+        nickname="Auth Student",
+        activated_at=datetime.now(UTC),
+    )
+    client.cookies.set(
+        ACCESS_COOKIE_NAME,
+        create_access_token(
+            student.id,
+            student.role,
+            auth_settings,
+            course_id=course.id,
+            enrollment_id=student_enrollment.id,
+        ),
+    )
     forbidden = client.get(
         f"/api/instructor/courses/{course.id}/students"
     )

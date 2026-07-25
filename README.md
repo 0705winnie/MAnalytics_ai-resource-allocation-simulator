@@ -232,6 +232,13 @@ the current activation-code hash, so regenerating, consuming, or clearing the
 code immediately invalidates an older activation session. It does not create a
 normal access session or consume the activation code.
 
+Completing first-time activation creates a global User password when none
+exists. When the same User activates another course, the existing global
+password must be confirmed and is never replaced. The chosen nickname belongs
+only to that course Enrollment, so another course can use a different
+nickname. Successful completion consumes the one-time code, clears the
+activation Cookie, and establishes a course-scoped Student access session.
+
 Production deployments must rate-limit activation verification at the reverse
 proxy or a shared-storage enforcement layer. A process-local counter is not
 complete protection for multiple application instances.

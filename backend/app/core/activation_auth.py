@@ -13,7 +13,7 @@ import jwt
 from fastapi import Cookie, Depends, HTTPException, status
 from jwt import PyJWTError
 from sqlalchemy import select
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, contains_eager, joinedload
 
 from app.core.auth import (
     JWT_ALGORITHM,
@@ -162,6 +162,33 @@ def _activation_context_required() -> HTTPException:
     )
 
 
+def _activation_state_is_valid(
+    enrollment: Enrollment,
+    claims: ActivationTokenClaims,
+    settings: AuthSettings,
+) -> bool:
+    activation_hash = enrollment.activation_code_hash
+    expiration = enrollment.activation_expires_at
+    if activation_hash is None:
+        return False
+    state_is_valid = (
+        enrollment.course.is_active
+        and enrollment.user.role == UserRole.STUDENT
+        and enrollment.user.is_active
+        and enrollment.status == EnrollmentStatus.PENDING
+        and enrollment.activation_used_at is None
+        and expiration is not None
+        and expiration.tzinfo is not None
+        and expiration.utcoffset() is not None
+        and datetime.now(UTC) < expiration.astimezone(UTC)
+    )
+    current_version = activation_hash_fingerprint(activation_hash, settings)
+    return state_is_valid and hmac.compare_digest(
+        claims.activation_version,
+        current_version,
+    )
+
+
 def get_activation_context(
     db: Annotated[Session, Depends(get_db)],
     settings: Annotated[AuthSettings, Depends(get_auth_settings)],
@@ -195,33 +222,75 @@ def get_activation_context(
             joinedload(Enrollment.course),
         )
     )
-    if enrollment is None or enrollment.activation_code_hash is None:
+    if enrollment is None:
         raise _activation_context_required()
 
-    expiration = enrollment.activation_expires_at
-    state_is_valid = (
-        enrollment.course.is_active
-        and enrollment.user.role == UserRole.STUDENT
-        and enrollment.user.is_active
-        and enrollment.status == EnrollmentStatus.PENDING
-        and enrollment.activation_used_at is None
-        and expiration is not None
-        and expiration.tzinfo is not None
-        and expiration.utcoffset() is not None
-        and datetime.now(UTC) < expiration.astimezone(UTC)
-    )
     try:
-        current_version = activation_hash_fingerprint(
-            enrollment.activation_code_hash,
+        state_is_valid = _activation_state_is_valid(
+            enrollment,
+            claims,
             settings,
         )
     except AuthConfigurationError:
         raise _activation_context_required() from None
-    if not state_is_valid or not hmac.compare_digest(
-        claims.activation_version,
-        current_version,
-    ):
+    if not state_is_valid:
         raise _activation_context_required()
+    return ActivationContext(
+        user=enrollment.user,
+        course=enrollment.course,
+        enrollment=enrollment,
+    )
+
+
+def lock_activation_context(
+    db: Session,
+    activation_token: str,
+    settings: AuthSettings,
+) -> ActivationContext:
+    """Lock and revalidate the token-bound Enrollment, User, and Course rows."""
+
+    try:
+        claims = decode_activation_token(activation_token, settings)
+    except (AuthConfigurationError, InvalidActivationTokenError) as exc:
+        raise InvalidActivationTokenError(
+            ACTIVATION_CONTEXT_REQUIRED_MESSAGE
+        ) from exc
+
+    enrollment = db.scalar(
+        select(Enrollment)
+        .join(User, Enrollment.user_id == User.id)
+        .join(CourseInstance, Enrollment.course_id == CourseInstance.id)
+        .where(
+            Enrollment.id == claims.enrollment_id,
+            Enrollment.user_id == claims.user_id,
+            Enrollment.course_id == claims.course_id,
+            User.id == claims.user_id,
+            CourseInstance.id == claims.course_id,
+        )
+        .options(
+            contains_eager(Enrollment.user),
+            contains_eager(Enrollment.course),
+        )
+        .with_for_update(of=(Enrollment, User, CourseInstance))
+    )
+    if enrollment is None:
+        raise InvalidActivationTokenError(
+            ACTIVATION_CONTEXT_REQUIRED_MESSAGE
+        )
+    try:
+        state_is_valid = _activation_state_is_valid(
+            enrollment,
+            claims,
+            settings,
+        )
+    except AuthConfigurationError as exc:
+        raise InvalidActivationTokenError(
+            ACTIVATION_CONTEXT_REQUIRED_MESSAGE
+        ) from exc
+    if not state_is_valid:
+        raise InvalidActivationTokenError(
+            ACTIVATION_CONTEXT_REQUIRED_MESSAGE
+        )
     return ActivationContext(
         user=enrollment.user,
         course=enrollment.course,
