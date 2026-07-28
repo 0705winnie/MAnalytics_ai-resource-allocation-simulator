@@ -5,6 +5,7 @@ export interface InstructorBreadcrumbItem {
   to?: string
   current?: boolean
   disabled?: boolean
+  back?: boolean
 }
 
 interface InstructorBreadcrumbsProps {
@@ -37,7 +38,14 @@ export default function InstructorBreadcrumbs({
             {item.to && !item.disabled && !item.current ? (
               <Link
                 to={item.to}
-                className="min-w-0 break-words font-semibold text-hud-accent hover:text-hud-accent-hover focus:outline-none focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-hud-accent/30"
+                className={[
+                  'min-w-0 break-words font-semibold text-hud-accent',
+                  'hover:text-hud-accent-hover focus:outline-none',
+                  'focus-visible:ring-2 focus-visible:ring-hud-accent/30',
+                  item.back
+                    ? 'rounded-md border border-line-strong px-3 py-2 hover:bg-white'
+                    : 'focus-visible:rounded-sm',
+                ].join(' ')}
               >
                 {item.label}
               </Link>
@@ -46,6 +54,9 @@ export default function InstructorBreadcrumbs({
                 className={[
                   'min-w-0 break-words font-medium',
                   item.disabled ? 'text-ink-faint' : 'text-ink-dim',
+                  item.back
+                    ? 'rounded-md border border-line px-3 py-2'
+                    : '',
                 ].join(' ')}
                 aria-current={item.current ? 'page' : undefined}
                 aria-disabled={item.disabled ? 'true' : undefined}

@@ -188,13 +188,14 @@ export default function InstructorRosterImportPage() {
   const visibleCourse = course?.id === courseId ? course : null
 
   return (
-    <main className="mx-auto w-full max-w-5xl px-6 py-10 sm:px-10">
+    <main className="mx-auto w-full max-w-6xl px-6 py-10 sm:px-10">
       <InstructorBreadcrumbs
         items={[
           {
-            label: 'My Courses',
+            label: '← My Courses',
             to: '/instructor/courses',
             disabled: importing,
+            back: true,
           },
           ...(visibleCourse
             ? [
@@ -206,14 +207,9 @@ export default function InstructorRosterImportPage() {
                 to: `/instructor/courses/${visibleCourse.id}`,
                 disabled: importing,
               },
-              {
-                label: 'Roster',
-                to: `/instructor/courses/${visibleCourse.id}/roster`,
-                disabled: importing,
-              },
             ]
             : []),
-          { label: 'Import', current: true },
+          { label: 'Import Roster', current: true },
         ]}
       />
 
@@ -254,8 +250,6 @@ export default function InstructorRosterImportPage() {
           </header>
 
           <CourseSectionNavigation
-            courseId={visibleCourse.id}
-            currentSection="roster"
             navigationDisabled={importing}
           />
 
@@ -338,7 +332,7 @@ export default function InstructorRosterImportPage() {
                   </span>
                 ) : (
                   <Link
-                    to={`/instructor/courses/${visibleCourse.id}/roster`}
+                    to={`/instructor/courses/${visibleCourse.id}`}
                     className="rounded-md border border-line-strong px-4 py-2.5 text-center text-sm font-semibold text-ink hover:bg-well"
                   >
                     Cancel

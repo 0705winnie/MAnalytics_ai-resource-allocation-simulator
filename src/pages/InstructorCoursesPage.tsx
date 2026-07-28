@@ -71,8 +71,7 @@ export default function InstructorCoursesPage() {
           </p>
           <h1 className="mt-2 text-3xl font-bold tracking-tight">My Courses</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-ink-dim">
-            View your course instances and open a course to manage its roster
-            and future course-level tools.
+            Open a course to manage its roster and access course-level tools.
           </p>
         </div>
         <Link

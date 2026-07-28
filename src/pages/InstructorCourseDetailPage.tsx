@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
 import CourseSectionNavigation from '../instructor/CourseSectionNavigation'
 import {
@@ -9,6 +9,7 @@ import {
 import InstructorBreadcrumbs, {
   courseBreadcrumbLabel,
 } from '../instructor/InstructorBreadcrumbs'
+import InstructorRosterManagement from '../instructor/InstructorRosterManagement'
 import type { InstructorCourse } from '../instructor/types'
 
 export default function InstructorCourseDetailPage() {
@@ -18,6 +19,7 @@ export default function InstructorCourseDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [requestVersion, setRequestVersion] = useState(0)
+  const [rosterNavigationLocked, setRosterNavigationLocked] = useState(false)
 
   const retry = useCallback(() => {
     setRequestVersion((current) => current + 1)
@@ -66,10 +68,15 @@ export default function InstructorCourseDetailPage() {
   const visibleCourse = course?.id === courseId ? course : null
 
   return (
-    <main className="mx-auto w-full max-w-5xl px-6 py-10 sm:px-10">
+    <main className="mx-auto w-full max-w-6xl px-6 py-10 sm:px-10">
       <InstructorBreadcrumbs
         items={[
-          { label: 'My Courses', to: '/instructor/courses' },
+          {
+            label: '← My Courses',
+            to: '/instructor/courses',
+            disabled: rosterNavigationLocked,
+            back: true,
+          },
           {
             label: visibleCourse
               ? courseBreadcrumbLabel(
@@ -133,27 +140,13 @@ export default function InstructorCourseDetailPage() {
           </section>
 
           <CourseSectionNavigation
-            courseId={visibleCourse.id}
-            currentSection="overview"
+            navigationDisabled={rosterNavigationLocked}
           />
 
-          <section className="mt-6 rounded-xl border border-line bg-white p-6 shadow-card sm:p-8">
-            <p className="font-mono text-xs uppercase tracking-wider text-ink-faint">
-              Course administration
-            </p>
-            <h2 className="mt-2 text-xl font-semibold">Roster management</h2>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-ink-dim">
-              View enrolled students, search or filter activation status,
-              import a roster CSV, and regenerate activation codes for eligible
-              pending enrollments.
-            </p>
-            <Link
-              to={`/instructor/courses/${visibleCourse.id}/roster`}
-              className="mt-5 inline-flex rounded-md bg-hud-accent px-4 py-2.5 text-sm font-semibold text-white hover:bg-hud-accent-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-hud-accent/40 focus-visible:ring-offset-2"
-            >
-              Manage Roster
-            </Link>
-          </section>
+          <InstructorRosterManagement
+            course={visibleCourse}
+            onNavigationLockChange={setRosterNavigationLocked}
+          />
         </>
       )}
     </main>

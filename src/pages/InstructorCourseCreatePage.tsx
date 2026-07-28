@@ -84,7 +84,7 @@ export default function InstructorCourseCreatePage() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-3xl px-6 py-10 sm:px-10">
+    <main className="mx-auto w-full max-w-6xl px-6 py-10 sm:px-10">
       <InstructorBreadcrumbs
         items={[
           { label: 'My Courses', to: '/instructor/courses' },
@@ -103,7 +103,7 @@ export default function InstructorCourseCreatePage() {
 
       <form
         onSubmit={(event) => void handleSubmit(event)}
-        className="mt-8 rounded-xl border border-line bg-white p-6 shadow-card sm:p-8"
+        className="mt-8 max-w-3xl rounded-xl border border-line bg-white p-6 shadow-card sm:p-8"
         noValidate
       >
         <div className="space-y-6">

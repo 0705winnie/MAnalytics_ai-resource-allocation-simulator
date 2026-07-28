@@ -5,25 +5,20 @@ import {
   useState,
   type FormEvent,
 } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
-import CourseSectionNavigation from '../instructor/CourseSectionNavigation'
 import {
-  getInstructorCourse,
   getInstructorEnrollments,
   InstructorCourseApiError,
   regenerateInstructorActivationCode,
-} from '../instructor/api'
-import InstructorBreadcrumbs, {
-  courseBreadcrumbLabel,
-} from '../instructor/InstructorBreadcrumbs'
+} from './api'
 import type {
   ActivationCodeReissueResult,
   EnrollmentActivationFilter,
   InstructorCourse,
   InstructorEnrollment,
   InstructorEnrollmentListResponse,
-} from '../instructor/types'
+} from './types'
 
 const PAGE_SIZE = 20
 const REISSUE_FILENAME = 'regenerated-activation-code.csv'
@@ -42,14 +37,17 @@ function enrollmentStatusLabel(status: InstructorEnrollment['status']): string {
   return 'Pending'
 }
 
-export default function InstructorRosterPage() {
-  const { courseId = '' } = useParams()
+interface InstructorRosterManagementProps {
+  course: InstructorCourse
+  onNavigationLockChange?: (locked: boolean) => void
+}
+
+export default function InstructorRosterManagement({
+  course,
+  onNavigationLockChange,
+}: InstructorRosterManagementProps) {
   const { refreshAuth } = useAuth()
   const objectUrls = useRef(new Set<string>())
-  const [course, setCourse] = useState<InstructorCourse | null>(null)
-  const [courseLoading, setCourseLoading] = useState(true)
-  const [courseError, setCourseError] = useState<string | null>(null)
-  const [courseRequestVersion, setCourseRequestVersion] = useState(0)
   const [roster, setRoster] = useState<InstructorEnrollmentListResponse | null>(null)
   const [rosterLoading, setRosterLoading] = useState(true)
   const [rosterError, setRosterError] = useState<string | null>(null)
@@ -81,10 +79,16 @@ export default function InstructorRosterPage() {
   useEffect(() => revokeObjectUrls, [revokeObjectUrls])
 
   useEffect(() => {
+    onNavigationLockChange?.(regenerating)
+  }, [onNavigationLockChange, regenerating])
+
+  useEffect(
+    () => () => onNavigationLockChange?.(false),
+    [onNavigationLockChange],
+  )
+
+  useEffect(() => {
     revokeObjectUrls()
-    setCourse(null)
-    setCourseLoading(true)
-    setCourseError(null)
     setReissueResult(null)
     setReissueDownloaded(false)
     setConfirmingEnrollmentId(null)
@@ -95,53 +99,10 @@ export default function InstructorRosterPage() {
     setAppliedSearch('')
     setActivationFilter('all')
     setOffset(0)
-  }, [courseId, revokeObjectUrls])
+    setRosterLoading(true)
+  }, [course.id, revokeObjectUrls])
 
   useEffect(() => {
-    const controller = new AbortController()
-
-    async function loadCourse() {
-      setCourseLoading(true)
-      setCourseError(null)
-      try {
-        setCourse(await getInstructorCourse(courseId, controller.signal))
-      } catch (requestError) {
-        if (controller.signal.aborted) return
-
-        setCourse(null)
-        if (
-          requestError instanceof InstructorCourseApiError
-          && requestError.code === 'unauthorized'
-        ) {
-          await refreshAuth()
-          setCourseError('Roster management is temporarily unavailable.')
-          return
-        }
-        setCourseError(
-          requestError instanceof InstructorCourseApiError
-          && requestError.code === 'not_found'
-            ? 'Course not found.'
-            : requestError instanceof InstructorCourseApiError
-              && requestError.code === 'forbidden'
-              ? 'You do not have permission to manage this course.'
-              : 'Roster management is temporarily unavailable.',
-        )
-      } finally {
-        if (!controller.signal.aborted) {
-          setCourseLoading(false)
-        }
-      }
-    }
-
-    void loadCourse()
-    return () => controller.abort()
-  }, [courseId, courseRequestVersion, refreshAuth])
-
-  useEffect(() => {
-    if (!course || course.id !== courseId) {
-      setRosterLoading(false)
-      return
-    }
     const controller = new AbortController()
 
     async function loadRoster() {
@@ -149,7 +110,7 @@ export default function InstructorRosterPage() {
       setRosterError(null)
       try {
         setRoster(await getInstructorEnrollments(
-          courseId,
+          course.id,
           {
             offset,
             limit: PAGE_SIZE,
@@ -193,8 +154,7 @@ export default function InstructorRosterPage() {
   }, [
     activationFilter,
     appliedSearch,
-    course,
-    courseId,
+    course.id,
     offset,
     refreshAuth,
     rosterRequestVersion,
@@ -238,7 +198,6 @@ export default function InstructorRosterPage() {
     if (
       regenerating
       || hasUndownloadedReissue
-      || !course
       || !roster
       || confirmingEnrollmentId === null
     ) {
@@ -319,86 +278,36 @@ export default function InstructorRosterPage() {
     roster?.total === 0
     && (Boolean(appliedSearch) || activationFilter !== 'all')
   )
-  const visibleCourse = course?.id === courseId ? course : null
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-6 py-10 sm:px-10">
-      <InstructorBreadcrumbs
-        items={[
-          {
-            label: 'My Courses',
-            to: '/instructor/courses',
-            disabled: regenerating,
-          },
-          ...(visibleCourse
-            ? [{
-              label: courseBreadcrumbLabel(
-                visibleCourse.course_code,
-                visibleCourse.semester,
-              ),
-              to: `/instructor/courses/${visibleCourse.id}`,
-              disabled: regenerating,
-            }]
-            : []),
-          { label: 'Roster', current: true },
-        ]}
-      />
-
-      {(courseLoading || (course !== null && course.id !== courseId)) && (
-        <section
-          className="mt-6 rounded-xl border border-line bg-white p-6 shadow-card"
-          aria-live="polite"
-        >
-          <p className="text-sm font-medium">Loading course…</p>
-        </section>
-      )}
-
-      {!courseLoading && course === null && courseError && (
-        <section className="mt-6 rounded-xl border border-red-200 bg-red-50 p-6">
-          <p className="text-sm text-red-800" role="alert">{courseError}</p>
-          <button
-            type="button"
-            onClick={() => setCourseRequestVersion((current) => current + 1)}
-            className="mt-4 rounded-md border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-800 hover:bg-red-50"
+    <section className="mt-8" aria-labelledby="roster-management-title">
+      <header className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="font-mono text-xs uppercase tracking-wider text-ink-faint">
+            Course roster
+          </p>
+          <h2
+            id="roster-management-title"
+            className="mt-2 text-2xl font-bold tracking-tight"
           >
-            Retry
-          </button>
-        </section>
-      )}
+            Roster Management
+          </h2>
+        </div>
+        {course.is_active && !regenerating ? (
+          <Link
+            to={`/instructor/courses/${course.id}/roster/import`}
+            className="inline-flex justify-center rounded-md bg-hud-accent px-4 py-2.5 text-sm font-semibold text-white hover:bg-hud-accent-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-hud-accent/40 focus-visible:ring-offset-2"
+          >
+            Import Roster
+          </Link>
+        ) : (
+          <span className="rounded-md border border-line bg-well px-4 py-2.5 text-sm font-semibold text-ink-faint">
+            {regenerating ? 'Operation in progress' : 'Course is inactive'}
+          </span>
+        )}
+      </header>
 
-      {!courseLoading && !courseError && course?.id === courseId && (
-        <>
-          <header className="mt-6 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <p className="font-mono text-xs uppercase tracking-wider text-hud-accent">
-                {course.course_code}
-              </p>
-              <h1 className="mt-2 text-3xl font-bold tracking-tight">
-                Roster Management
-              </h1>
-              <p className="mt-2 text-sm text-ink-dim">{course.course_name}</p>
-            </div>
-            {course.is_active ? (
-              <Link
-                to={`/instructor/courses/${course.id}/roster/import`}
-                className="inline-flex justify-center rounded-md bg-hud-accent px-4 py-2.5 text-sm font-semibold text-white hover:bg-hud-accent-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-hud-accent/40 focus-visible:ring-offset-2"
-              >
-                Import Roster
-              </Link>
-            ) : (
-              <span className="rounded-md border border-line bg-well px-4 py-2.5 text-sm font-semibold text-ink-faint">
-                Course is inactive
-              </span>
-            )}
-          </header>
-
-          <CourseSectionNavigation
-            courseId={course.id}
-            currentSection="roster"
-            navigationDisabled={regenerating}
-          />
-
-          <section className="mt-8 rounded-xl border border-line bg-white p-5 shadow-card sm:p-6">
+      <section className="mt-6 rounded-xl border border-line bg-white p-5 shadow-card sm:p-6">
             <form
               onSubmit={handleSearch}
               className="grid gap-4 md:grid-cols-[minmax(0,1fr)_220px_auto]"
@@ -668,8 +577,6 @@ export default function InstructorRosterPage() {
               </nav>
             </section>
           )}
-        </>
-      )}
-    </main>
+    </section>
   )
 }

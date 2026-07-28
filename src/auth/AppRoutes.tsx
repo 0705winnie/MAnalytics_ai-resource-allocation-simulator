@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useParams } from 'react-router-dom'
 import App from '../App'
 import InstructorCourseCreatePage from '../pages/InstructorCourseCreatePage'
 import InstructorCourseDetailPage from '../pages/InstructorCourseDetailPage'
@@ -6,7 +6,6 @@ import InstructorCoursesPage from '../pages/InstructorCoursesPage'
 import InstructorLayout from '../pages/InstructorLayout'
 import InstructorLoginPage from '../pages/InstructorLoginPage'
 import InstructorRosterImportPage from '../pages/InstructorRosterImportPage'
-import InstructorRosterPage from '../pages/InstructorRosterPage'
 import StudentActivationPage from '../pages/StudentActivationPage'
 import StudentLoginPage from '../pages/StudentLoginPage'
 import { useAuth } from './AuthProvider'
@@ -69,6 +68,11 @@ function ActivationRoute() {
   return <StudentActivationPage />
 }
 
+function LegacyInstructorRosterRedirect() {
+  const { courseId = '' } = useParams()
+  return <Navigate to={`/instructor/courses/${courseId}`} replace />
+}
+
 export default function AppRoutes() {
   return (
     <Routes>
@@ -118,7 +122,7 @@ export default function AppRoutes() {
         <Route path="courses/:courseId" element={<InstructorCourseDetailPage />} />
         <Route
           path="courses/:courseId/roster"
-          element={<InstructorRosterPage />}
+          element={<LegacyInstructorRosterRedirect />}
         />
         <Route
           path="courses/:courseId/roster/import"
