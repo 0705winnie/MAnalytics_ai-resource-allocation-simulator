@@ -9,11 +9,13 @@ import {
 } from 'react'
 import {
   AuthApiError,
+  completeStudentActivation as requestActivationCompletion,
   getCurrentAuthentication,
   loginStudent as requestStudentLogin,
   logoutCurrentSession,
 } from './api'
 import type {
+  ActivationCompleteRequest,
   AuthenticatedCourse,
   AuthenticatedUser,
   AuthenticationResponse,
@@ -31,6 +33,7 @@ interface AuthContextValue {
   nickname: string | null
   error: string | null
   loginStudent: (request: StudentLoginRequest) => Promise<void>
+  completeStudentActivation: (request: ActivationCompleteRequest) => Promise<void>
   logout: () => Promise<void>
   refreshAuth: () => Promise<void>
 }
@@ -94,6 +97,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [applySession])
 
+  const completeStudentActivation = useCallback(
+    async (request: ActivationCompleteRequest) => {
+      try {
+        const nextSession = await requestActivationCompletion(request)
+        applySession(nextSession)
+      } catch (completionError) {
+        setError(
+          completionError instanceof AuthApiError
+          && completionError.code !== 'unavailable'
+            ? null
+            : AUTH_SERVICE_UNAVAILABLE_MESSAGE,
+        )
+        throw completionError
+      }
+    },
+    [applySession],
+  )
+
   const logout = useCallback(async () => {
     try {
       await logoutCurrentSession()
@@ -111,9 +132,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     nickname: session?.nickname ?? null,
     error,
     loginStudent,
+    completeStudentActivation,
     logout,
     refreshAuth,
-  }), [error, loginStudent, logout, refreshAuth, session, status])
+  }), [
+    completeStudentActivation,
+    error,
+    loginStudent,
+    logout,
+    refreshAuth,
+    session,
+    status,
+  ])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

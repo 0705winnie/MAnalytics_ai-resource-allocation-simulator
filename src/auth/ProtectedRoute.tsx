@@ -54,7 +54,7 @@ export function AuthUnavailableScreen() {
   )
 }
 
-function RoleMismatchScreen() {
+export function RoleMismatchScreen() {
   const { logout } = useAuth()
   const navigate = useNavigate()
   const [signingOut, setSigningOut] = useState(false)

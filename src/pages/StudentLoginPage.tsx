@@ -16,7 +16,6 @@ export default function StudentLoginPage() {
   const [password, setPassword] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
-  const [activationNotice, setActivationNotice] = useState<string | null>(null)
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -24,7 +23,6 @@ export default function StudentLoginPage() {
 
     setSubmitting(true)
     setFormError(null)
-    setActivationNotice(null)
     try {
       await loginStudent({
         course_code: courseCode,
@@ -153,21 +151,12 @@ export default function StudentLoginPage() {
 
               <button
                 type="button"
-                onClick={() => {
-                  setActivationNotice('Activation flow will be added in the next phase.')
-                  setFormError(null)
-                }}
+                onClick={() => navigate('/activate')}
                 disabled={submitting}
                 className="w-full rounded-md border border-line-strong px-4 py-2.5 text-sm font-semibold text-ink-dim transition-colors hover:bg-well focus:outline-none focus-visible:ring-2 focus-visible:ring-hud-accent/30 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 First-time activation
               </button>
-
-              {activationNotice && (
-                <p className="text-center text-sm text-ink-faint" role="status">
-                  {activationNotice}
-                </p>
-              )}
             </form>
           </section>
         </div>

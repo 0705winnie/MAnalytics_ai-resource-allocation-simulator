@@ -1,10 +1,20 @@
 import type {
+  ActivationCompleteRequest,
+  ActivationVerificationResponse,
+  ActivationVerifyRequest,
   AuthenticationResponse,
   StudentAuthenticationResponse,
   StudentLoginRequest,
 } from './types'
 
-export type AuthApiErrorCode = 'invalid_credentials' | 'unavailable'
+export type AuthApiErrorCode =
+  | 'invalid_credentials'
+  | 'invalid_activation'
+  | 'activation_session_expired'
+  | 'existing_password_unconfirmed'
+  | 'nickname_conflict'
+  | 'invalid_nickname'
+  | 'unavailable'
 
 export class AuthApiError extends Error {
   readonly code: AuthApiErrorCode
@@ -80,6 +90,26 @@ function requireStudentSession(
   return value as StudentAuthenticationResponse
 }
 
+function parseActivationVerificationResponse(
+  value: unknown,
+): ActivationVerificationResponse {
+  if (
+    !isRecord(value)
+    || value.verified !== true
+    || !Number.isInteger(value.expires_in_seconds)
+    || (value.expires_in_seconds as number) <= 0
+    || (value.password_mode !== 'create' && value.password_mode !== 'confirm')
+  ) {
+    throw new AuthApiError('unavailable')
+  }
+
+  return {
+    verified: true,
+    expires_in_seconds: value.expires_in_seconds as number,
+    password_mode: value.password_mode,
+  }
+}
+
 async function safeJson(response: Response): Promise<unknown> {
   try {
     return await response.json()
@@ -130,6 +160,64 @@ export async function loginStudent(
     })
     if (response.status === 401 || (response.status >= 400 && response.status < 500)) {
       throw new AuthApiError('invalid_credentials')
+    }
+    if (!response.ok) {
+      throw new AuthApiError('unavailable')
+    }
+    return requireStudentSession(
+      parseAuthenticationResponse(await safeJson(response)),
+    )
+  } catch (error) {
+    return unavailableUnlessAborted(error)
+  }
+}
+
+export async function verifyStudentActivation(
+  request: ActivationVerifyRequest,
+): Promise<ActivationVerificationResponse> {
+  try {
+    const response = await fetch('/api/auth/activate/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(request),
+    })
+    if (response.status >= 400 && response.status < 500) {
+      throw new AuthApiError('invalid_activation')
+    }
+    if (!response.ok) {
+      throw new AuthApiError('unavailable')
+    }
+    return parseActivationVerificationResponse(await safeJson(response))
+  } catch (error) {
+    return unavailableUnlessAborted(error)
+  }
+}
+
+export async function completeStudentActivation(
+  request: ActivationCompleteRequest,
+): Promise<StudentAuthenticationResponse> {
+  try {
+    const response = await fetch('/api/auth/activate/complete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(request),
+    })
+    if (response.status === 401) {
+      throw new AuthApiError('activation_session_expired')
+    }
+    if (response.status === 400) {
+      throw new AuthApiError('existing_password_unconfirmed')
+    }
+    if (response.status === 409) {
+      throw new AuthApiError('nickname_conflict')
+    }
+    if (response.status === 422) {
+      throw new AuthApiError('invalid_nickname')
+    }
+    if (response.status >= 400 && response.status < 500) {
+      throw new AuthApiError('activation_session_expired')
     }
     if (!response.ok) {
       throw new AuthApiError('unavailable')
