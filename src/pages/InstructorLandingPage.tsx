@@ -1,10 +1,5 @@
 import { Link } from 'react-router-dom'
 
-const UPCOMING_TOOLS = [
-  ['Roster management', 'Available from each course'],
-  ['Student progress', 'Coming later'],
-] as const
-
 export default function InstructorLandingPage() {
   return (
     <main className="px-6 py-10 sm:px-10">
@@ -43,14 +38,29 @@ export default function InstructorLandingPage() {
           </div>
 
           <div className="mt-8 grid gap-4 sm:grid-cols-2">
-            {UPCOMING_TOOLS.map(([title, status]) => (
-              <article key={title} className="rounded-xl border border-line bg-well p-5">
-                <h3 className="font-semibold">{title}</h3>
-                <p className="mt-2 font-mono text-xs uppercase tracking-wider text-ink-faint">
-                  {status}
-                </p>
-              </article>
-            ))}
+            <Link
+              to="/instructor/courses"
+              className="rounded-xl border border-line bg-well p-5 transition-colors hover:border-hud-accent/40 hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-hud-accent/30"
+            >
+              <h3 className="font-semibold">Roster Management</h3>
+              <p className="mt-2 text-sm leading-6 text-ink-dim">
+                Choose a course to view students, import a roster, and manage
+                activation status.
+              </p>
+              <p className="mt-3 font-mono text-xs uppercase tracking-wider text-hud-accent">
+                Select a course
+              </p>
+            </Link>
+            <article className="rounded-xl border border-line bg-well p-5">
+              <h3 className="font-semibold">Student Progress</h3>
+              <p className="mt-2 text-sm leading-6 text-ink-dim">
+                Review student simulation progress and results when this tool
+                becomes available.
+              </p>
+              <p className="mt-3 font-mono text-xs uppercase tracking-wider text-ink-faint">
+                Coming later
+              </p>
+            </article>
           </div>
         </section>
       </div>

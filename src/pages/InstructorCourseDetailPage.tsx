@@ -118,12 +118,13 @@ export default function InstructorCourseDetailPage() {
 
           <section className="mt-6 rounded-xl border border-line bg-white p-6 shadow-card sm:p-8">
             <p className="font-mono text-xs uppercase tracking-wider text-ink-faint">
-              Next administration tool
+              Course administration
             </p>
             <h2 className="mt-2 text-xl font-semibold">Roster management</h2>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-ink-dim">
-              Upload a roster CSV and securely download the one-time activation
-              codes returned for newly created enrollments.
+              View enrolled students, search or filter activation status,
+              import a roster CSV, and regenerate activation codes for eligible
+              pending enrollments.
             </p>
             <Link
               to={`/instructor/courses/${course.id}/roster`}
