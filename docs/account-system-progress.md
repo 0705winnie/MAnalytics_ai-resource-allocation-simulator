@@ -207,56 +207,128 @@ Commit: `7a691c23ef07a9f55ea52785d54d3dcc487895aa`
 
 Commit: `d70554ab629be37f60eb96f853e689e7241853eb`
 
+### Phase 6A — Instructor Course Management UI
+
+- Added a PostgreSQL-backed course list.
+- Added Create Course.
+- Added course data loading, error, and empty states.
+- Protected the interface by Instructor role.
+- Added a responsive layout.
+
+Commit: `0a44f702d74695e4af214342a522748d5a966c73`
+
+### Phase 6B — Roster Import UI
+
+- Added UTF-8 roster CSV import.
+- Kept validation backend-authoritative.
+- Added a row-level import summary.
+- Added the one-time activation-code CSV download.
+- Added no-store/no-cache response validation.
+- Kept downloaded results in temporary Blob/Object URLs.
+- Protected undownloaded codes from silent overwrite.
+- Manually verified the Instructor-to-Student activation flow.
+
+Commit: `5726f5f1fe025fdef436bfbeb95cf82057df1a72`
+
+### Phase 6C — Roster Status and Activation Code Reissue
+
+- Added the real enrollment list and pagination.
+- Added Berkeley Username search.
+- Added Pending/Activated filtering.
+- Displayed activation, enrollment, and account status separately.
+- Enforced Instructor course ownership.
+- Added activation-code regeneration and old-code invalidation.
+- Kept plaintext activation codes out of the database.
+
+Targeted backend tests: `21 passed`
+
+Commit: `0eaa5a72b3d150bbc5954910a016033eda33caaf`
+
+### Instructor navigation UX follow-up
+
+- Corrected Dashboard roster navigation.
+
+Commit: `7bde1b5048ee495d201d6d8629c8b23df168ac99`
+
+### Course-first navigation redesign
+
+- Removed the standalone Instructor Dashboard.
+- Made Instructor login open My Courses.
+- Made `/instructor` redirect with replace to `/instructor/courses`.
+- Kept Create Course only within My Courses.
+- Added a reusable breadcrumb hierarchy.
+- Moved Student Progress into course-level navigation as Coming later.
+- Simplified the header to Instructor identity and Sign Out.
+
+Commit: `ed49e2f3c29f85ef5dba1ce486b6f686f28c305e`
+
+### Unified Course Workspace
+
+- Made a selected course open directly into Roster Management.
+- Removed the Overview tab and intermediate Manage Roster page/button.
+- Embedded roster content using the course already loaded by the workspace.
+- Avoided a duplicate `getInstructorCourse` request.
+- Redirected the legacy `/courses/:courseId/roster` URL with replace.
+- Kept only these course modules:
+  - Roster Management
+  - Student Progress — Coming later
+- Standardized My Courses, Course Workspace, and Import pages on `max-w-6xl`.
+- Added an explicit Back to My Courses control.
+- Made Import Cancel return to the unified course workspace.
+
+Commit: `1bf1f25eef283a0961b22a8e8f42cd5676b1ef95`
+
 ## 3. Current system capabilities
 
-The current account system can:
+The current **Instructor Course/Roster Administration MVP** can:
 
-1. Sign an Instructor in securely.
-2. Let a Student complete first-time activation.
-3. Let a Student create or confirm a global password.
-4. Let a Student choose a course-specific nickname.
-5. Let a Student sign out and later sign in normally.
-6. Restore an HttpOnly Cookie session after a browser refresh.
-7. Keep Student and Instructor pages isolated from each other.
-8. Use Instructor backend APIs to create courses, import rosters, and manage
-   enrollments.
-9. Preserve account identity when `localStorage` is cleared.
-10. Complete a verified local manual Student demo.
+1. Send an Instructor directly to My Courses after login.
+2. Let an Instructor create and view courses.
+3. Open a selected course directly in Roster Management.
+4. Let an Instructor upload a roster CSV.
+5. Let an Instructor download activation codes for new enrollments.
+6. Let an Instructor view, search, and filter a roster.
+7. Show activation, enrollment, and account status.
+8. Regenerate a code for an eligible Pending enrollment.
+9. Let a Student complete first-time activation and enter the Dashboard.
+10. Let a Student sign out and later sign in with a password.
+11. Keep Student and Instructor pages isolated.
+12. Complete a verified local Instructor-to-Student demo.
 
 ## 4. Current milestone
 
 - Authentication backend: complete for current MVP scope.
 - Authentication frontend: complete for current MVP scope.
-- Student manual demo: verified.
-- Instructor administration UI: not yet implemented.
+- Instructor Course/Roster Administration MVP: complete.
+- Course-first Instructor navigation: complete.
+- Instructor-to-Student end-to-end demo: verified.
 - Simulation persistence: not yet implemented.
-- Overall complete platform estimate: approximately 55–60%.
+- Student Progress: not yet implemented.
+- Overall complete platform estimate: approximately 65–70%.
 
 ## 5. Work still required
 
-### Phase 5 — Simulation persistence
+### Phase 5 — Simulation Persistence
 
-- Add models and migrations for:
-  - simulation sessions
-  - monthly results
-  - policy versions/submissions
-  - warnings and invalid actions
-- Bind every record to both the authenticated enrollment and course.
-- Add APIs to create, resume, run, and inspect simulations.
-- Stop trusting student IDs or course IDs supplied arbitrarily by the browser.
-- Keep `localStorage` only for drafts and temporary UI preferences.
-- Add a safe transition strategy for existing local prototype data.
+- Add simulation session/run persistence.
+- Add monthly policy/result persistence.
+- Add cross-browser restoration.
+- Add server-side ownership and validation.
 
-### Phase 6 — Instructor administration UI
+### Phase 6D — Optional Enrollment Administration
 
-- Build course creation and course listing screens.
-- Build roster upload and one-time activation CSV download.
-- Build student/enrollment management.
-- Add activation regeneration and enrollment enable/disable controls.
-- Add result export for instructors.
-- Add clear counts for pending, active, and disabled enrollments.
+- Add manual single-student enrollment.
+- Add enrollment deactivate/reactivate controls.
+- Add additional administrative actions.
 
-### Phase 7 — Saved runs and analysis
+### Student Progress
+
+- Keep progress course-scoped.
+- Implement it after Simulation Persistence.
+- Use only real database data.
+- Do not use mock or `localStorage` data.
+
+### Phase 7 — Saved Runs and Analysis
 
 - Persist complete run history and monthly snapshots.
 - Link each result to its exact policy version, parameters, warnings, and
@@ -265,7 +337,7 @@ The current account system can:
 - Add personal best results grouped by equal progress.
 - Add CSV, JSON, policy-code, and report exports.
 
-### Phase 8 — Same-stage and final rankings
+### Phase 8 — Same-Stage and Final Rankings
 
 - Add a Class Progress view that is not a performance ranking.
 - Add a formal Same-Stage Comparison:
@@ -280,7 +352,7 @@ The current account system can:
 - Display metric definitions such as VIP admission and completion rates.
 - Never expose Berkeley usernames, internal user IDs, or private student data.
 
-### Phase 9 — Security, operations, and deployment
+### Phase 9 — Security, Operations, and Deployment
 
 - Add production PostgreSQL configuration and migrations.
 - Require HTTPS and Secure cookies in production.
