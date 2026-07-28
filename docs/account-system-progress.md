@@ -1,6 +1,6 @@
 # Account System Implementation Progress
 
-Last updated: July 25, 2026
+Last updated: July 28, 2026
 Repository: `MunazzaNadir/ai-resource-allocation-simulator`
 Development base branch: `integration/main-dashboard`
 Login feature branch: `integration/main-dashboard-login`
@@ -155,50 +155,86 @@ Verification results:
 - Staged diff and secret scan passed.
 
 Commit: `58228055f9e9a0e7feaeebe720d48835ff479d49`
-Use `git rev-parse HEAD` to replace this abbreviated display with the exact
-local commit hash before publishing this document.
+
+### Phase 3C — Student regular login
+
+- Added Student login using Course Code, Berkeley Username, and Password.
+- Added course-scoped Student JWTs and multi-course enrollment selection.
+- Added uniform authentication failure responses and shared dummy Argon2
+  verification.
+- Revalidated inactive users, courses, and enrollments.
+- Added HttpOnly access cookies, Student `/api/auth/me`, and logout.
+
+Targeted tests:
+
+- `test_student_login.py`: `35 passed`
+- `test_auth.py`: `41 passed`
+
+Commit: `71ea89201eda32ec9ccbff2d0579e42c59b2c258`
+
+### Phase 4A — Frontend authentication foundation
+
+- Added React Router with `/login` and `/app/*`.
+- Added `AuthProvider` and `/api/auth/me` session restoration.
+- Added protected Student routes, the Student Login page, and Student logout.
+- Displayed the authenticated course nickname and course code.
+- Clearly marked the legacy local profile as a local prototype.
+- Verified desktop and 390px layouts.
+
+Commit: `57ee7c7b24fc63cd18659716d426420a6e7613ef`
+
+### Phase 4B — Student activation UI
+
+- Added `/activate` with a two-step activation flow.
+- Added activation-code verification.
+- Added create-password and confirm-existing-password modes.
+- Added course-specific leaderboard nickname setup.
+- Added an in-memory expiration countdown and sensitive-state cleanup.
+- Updated `AuthProvider` after successful activation and entered `/app`.
+- Kept passwords, activation codes, tokens, and activation state out of
+  `localStorage`.
+
+Commit: `7a691c23ef07a9f55ea52785d54d3dcc487895aa`
+
+### Phase 4C — Instructor authentication UI
+
+- Added `/instructor/login` and `/instructor/*`.
+- Added Instructor login, session restoration, and logout.
+- Added Student/Instructor role routing and role-protected routes.
+- Added an Instructor landing page.
+- Marked course, roster, and progress tools clearly as upcoming work.
+- Did not display fake course or student statistics.
+
+Commit: `d70554ab629be37f60eb96f853e689e7241853eb`
 
 ## 3. Current system capabilities
 
-The backend can currently demonstrate:
+The current account system can:
 
-1. An instructor account signs in securely.
-2. The instructor creates a course instance.
-3. The instructor imports a roster CSV.
-4. The system generates a different one-time activation code for every new
-   enrollment.
-5. A student verifies their course, username, and activation code.
-6. A first-time student creates a global password and course nickname.
-7. A returning student confirms the existing global password and chooses a
-   nickname for another course.
-8. The activation code is consumed and cannot be reused.
-9. The student receives a course-scoped authenticated session.
-10. Disabled users, disabled enrollments, inactive courses, and inconsistent
-    activation states are rejected.
+1. Sign an Instructor in securely.
+2. Let a Student complete first-time activation.
+3. Let a Student create or confirm a global password.
+4. Let a Student choose a course-specific nickname.
+5. Let a Student sign out and later sign in normally.
+6. Restore an HttpOnly Cookie session after a browser refresh.
+7. Keep Student and Instructor pages isolated from each other.
+8. Use Instructor backend APIs to create courses, import rosters, and manage
+   enrollments.
+9. Preserve account identity when `localStorage` is cleared.
+10. Complete a verified local manual Student demo.
 
-## 4. Work still required
+## 4. Current milestone
 
-### Phase 3C — Regular student login
+- Authentication backend: complete for current MVP scope.
+- Authentication frontend: complete for current MVP scope.
+- Student manual demo: verified.
+- Instructor administration UI: not yet implemented.
+- Simulation persistence: not yet implemented.
+- Overall complete platform estimate: approximately 55–60%.
 
-- Add login using course code, Berkeley username, and password.
-- Resolve the correct enrollment for the selected course.
-- Issue a course-scoped Student access cookie.
-- Add logout and session-expiration behavior for the Student flow.
-- Add login throttling or rate limiting.
-- Add tests for multi-course users and disabled states.
+## 5. Work still required
 
-### Phase 4 — Authentication user interface
-
-- Build the Student Login page.
-- Build the First-Time Activation page.
-- Build the Create/Confirm Password and Nickname step.
-- Add an application-level auth provider.
-- Add protected routes and role-based navigation.
-- Add instructor login and logout UI.
-- Display safe, actionable errors without revealing whether a roster username
-  exists.
-
-### Phase 5 — Move simulation data to PostgreSQL
+### Phase 5 — Simulation persistence
 
 - Add models and migrations for:
   - simulation sessions
@@ -229,7 +265,7 @@ The backend can currently demonstrate:
 - Add personal best results grouped by equal progress.
 - Add CSV, JSON, policy-code, and report exports.
 
-### Phase 8 — Rankings
+### Phase 8 — Same-stage and final rankings
 
 - Add a Class Progress view that is not a performance ranking.
 - Add a formal Same-Stage Comparison:
@@ -257,7 +293,7 @@ The backend can currently demonstrate:
 - Resolve or formally document the five existing simulation baseline test
   failures.
 
-## 5. Remaining MVP acceptance criteria
+## 6. Remaining MVP acceptance criteria
 
 The account-system MVP is complete when:
 
@@ -273,11 +309,9 @@ The account-system MVP is complete when:
 - Database migrations, backend tests, type checks, and frontend builds pass in
   CI, apart from any explicitly documented legacy baseline failures.
 
-## 6. Branch and publishing notes
+## 7. Branch and publishing notes
 
-- The completed work currently consists of ten local commits on
-  `integration/main-dashboard`.
-- Publish these commits from the current local HEAD to
+- Account-system integration work is maintained on
   `integration/main-dashboard-login`.
 - Do not commit `.env`, generated review patches, plaintext credentials, or
   one-time activation CSV files.
