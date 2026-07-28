@@ -125,18 +125,12 @@ export default function InstructorCourseDetailPage() {
               Upload a roster CSV and securely download the one-time activation
               codes returned for newly created enrollments.
             </p>
-            {course.is_active ? (
-              <Link
-                to={`/instructor/courses/${course.id}/roster`}
-                className="mt-5 inline-flex rounded-md bg-hud-accent px-4 py-2.5 text-sm font-semibold text-white hover:bg-hud-accent-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-hud-accent/40 focus-visible:ring-offset-2"
-              >
-                Manage Roster
-              </Link>
-            ) : (
-              <span className="mt-5 inline-flex rounded-md border border-line bg-well px-4 py-2 text-sm font-semibold text-ink-faint">
-                Course is inactive
-              </span>
-            )}
+            <Link
+              to={`/instructor/courses/${course.id}/roster`}
+              className="mt-5 inline-flex rounded-md bg-hud-accent px-4 py-2.5 text-sm font-semibold text-white hover:bg-hud-accent-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-hud-accent/40 focus-visible:ring-offset-2"
+            >
+              Manage Roster
+            </Link>
           </section>
         </>
       )}

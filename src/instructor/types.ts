@@ -34,3 +34,36 @@ export interface RosterImportResult {
   csv: Blob
   summary: RosterImportSummary
 }
+
+export type EnrollmentActivationFilter = 'pending' | 'activated'
+export type InstructorEnrollmentStatus = 'pending' | 'active' | 'disabled'
+
+export interface InstructorEnrollment {
+  enrollment_id: string
+  berkeley_username: string
+  nickname: string | null
+  status: InstructorEnrollmentStatus
+  user_is_active: boolean
+  activated: boolean
+  activation_expires_at: string | null
+  activation_used_at: string | null
+  created_at: string
+}
+
+export interface InstructorEnrollmentListResponse {
+  items: InstructorEnrollment[]
+  total: number
+  offset: number
+  limit: number
+}
+
+export interface InstructorEnrollmentListQuery {
+  offset: number
+  limit: number
+  search?: string
+  activation_status?: EnrollmentActivationFilter
+}
+
+export interface ActivationCodeReissueResult {
+  csv: Blob
+}

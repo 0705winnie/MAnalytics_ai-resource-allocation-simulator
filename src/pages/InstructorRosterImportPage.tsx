@@ -189,14 +189,14 @@ export default function InstructorRosterImportPage() {
           className="cursor-not-allowed text-sm font-semibold text-ink-faint"
           aria-disabled="true"
         >
-          ← Back to Course
+          ← Back to Roster Management
         </span>
       ) : (
         <Link
-          to={`/instructor/courses/${courseId}`}
+          to={`/instructor/courses/${courseId}/roster`}
           className="text-sm font-semibold text-hud-accent hover:text-hud-accent-hover"
         >
-          ← Back to Course
+          ← Back to Roster Management
         </Link>
       )}
 
@@ -313,7 +313,7 @@ export default function InstructorRosterImportPage() {
                   </span>
                 ) : (
                   <Link
-                    to={`/instructor/courses/${course.id}`}
+                    to={`/instructor/courses/${course.id}/roster`}
                     className="rounded-md border border-line-strong px-4 py-2.5 text-center text-sm font-semibold text-ink hover:bg-well"
                   >
                     Cancel

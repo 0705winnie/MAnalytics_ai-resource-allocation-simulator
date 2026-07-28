@@ -14,6 +14,7 @@ from app.core.auth import require_instructor
 from app.db.session import get_db
 from app.models import Enrollment, User
 from app.schemas.instructor_enrollments import (
+    ActivationStatusFilter,
     EnrollmentStatusRequest,
     InstructorEnrollmentListResponse,
     InstructorEnrollmentResponse,
@@ -78,20 +79,45 @@ def list_course_students(
     instructor: Annotated[User, Depends(require_instructor)],
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    search: Annotated[str | None, Query(min_length=1, max_length=64)] = None,
+    activation_status: Annotated[
+        ActivationStatusFilter | None,
+        Query(),
+    ] = None,
 ) -> InstructorEnrollmentListResponse:
     course = find_owned_course(db, course_id, instructor.id)
     if course is None:
         raise _not_found()
 
+    filters = [Enrollment.course_id == course.id]
+    if search is not None:
+        normalized_search = search.strip().lower()
+        if not normalized_search:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="Search must contain a username fragment",
+            )
+        filters.append(
+            User.berkeley_username.contains(
+                normalized_search,
+                autoescape=True,
+            )
+        )
+    if activation_status == ActivationStatusFilter.PENDING:
+        filters.append(Enrollment.activation_used_at.is_(None))
+    elif activation_status == ActivationStatusFilter.ACTIVATED:
+        filters.append(Enrollment.activation_used_at.is_not(None))
+
     total = db.scalar(
         select(func.count())
         .select_from(Enrollment)
-        .where(Enrollment.course_id == course.id)
+        .join(User, Enrollment.user_id == User.id)
+        .where(*filters)
     )
     enrollments = db.scalars(
         select(Enrollment)
         .join(User, Enrollment.user_id == User.id)
-        .where(Enrollment.course_id == course.id)
+        .where(*filters)
         .options(joinedload(Enrollment.user))
         .order_by(User.berkeley_username.asc(), Enrollment.id.asc())
         .offset(offset)

@@ -333,6 +333,97 @@ def test_student_list_hides_unowned_and_missing_courses(
     }
 
 
+def test_student_list_searches_filters_and_paginates_filtered_results(
+    client,
+    enrollment_session_factory,
+    auth_settings,
+):
+    instructor = _create_user(
+        enrollment_session_factory,
+        INSTRUCTOR,
+        role=UserRole.INSTRUCTOR,
+    )
+    course = _create_course(enrollment_session_factory, instructor)
+    other_course = _create_course(
+        enrollment_session_factory,
+        instructor,
+        code="IEOR150-FilteredOther",
+    )
+    activated_at = datetime.now(UTC) - timedelta(hours=1)
+    alpha = _create_user(enrollment_session_factory, "alpha-search")
+    alphabet = _create_user(enrollment_session_factory, "alphabet-search")
+    beta = _create_user(enrollment_session_factory, "beta-search")
+    outsider = _create_user(enrollment_session_factory, "alpha-outsider")
+    _create_enrollment(
+        enrollment_session_factory,
+        course,
+        alpha,
+        status=EnrollmentStatus.ACTIVE,
+        activated_at=activated_at,
+    )
+    _create_enrollment(
+        enrollment_session_factory,
+        course,
+        alphabet,
+        issue_code=True,
+    )
+    _create_enrollment(
+        enrollment_session_factory,
+        course,
+        beta,
+        status=EnrollmentStatus.DISABLED,
+        activated_at=activated_at,
+    )
+    _create_enrollment(
+        enrollment_session_factory,
+        other_course,
+        outsider,
+        status=EnrollmentStatus.ACTIVE,
+        activated_at=activated_at,
+    )
+    _authenticate(client, instructor, auth_settings)
+    path = f"/api/instructor/courses/{course.id}/students"
+
+    searched = client.get(path, params={"search": "  ALPHA  "})
+    activated = client.get(
+        path,
+        params={
+            "search": "search",
+            "activation_status": "activated",
+            "offset": 1,
+            "limit": 1,
+        },
+    )
+    pending = client.get(
+        path,
+        params={"activation_status": "pending"},
+    )
+    literal_wildcard = client.get(path, params={"search": "%_"})
+    invalid_status = client.get(
+        path,
+        params={"activation_status": "unknown"},
+    )
+    blank_search = client.get(path, params={"search": "   "})
+    long_search = client.get(path, params={"search": "x" * 65})
+
+    assert searched.status_code == activated.status_code == pending.status_code == 200
+    assert [
+        item["berkeley_username"] for item in searched.json()["items"]
+    ] == ["alpha-search", "alphabet-search"]
+    assert searched.json()["total"] == 2
+    assert activated.json()["total"] == 2
+    assert activated.json()["offset"] == 1
+    assert activated.json()["limit"] == 1
+    assert activated.json()["items"][0]["berkeley_username"] == "beta-search"
+    assert pending.json()["total"] == 1
+    assert pending.json()["items"][0]["berkeley_username"] == "alphabet-search"
+    assert literal_wildcard.status_code == 200
+    assert literal_wildcard.json()["items"] == []
+    assert invalid_status.status_code == 422
+    assert blank_search.status_code == 422
+    assert long_search.status_code == 422
+
+
 def test_pending_student_activation_regeneration_invalidates_old_code(
     client,
     enrollment_session_factory,

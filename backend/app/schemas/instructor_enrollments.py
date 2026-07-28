@@ -4,11 +4,17 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, StrictBool
 
 from app.models import Enrollment
 from app.models.enums import EnrollmentStatus
+
+
+class ActivationStatusFilter(StrEnum):
+    PENDING = "pending"
+    ACTIVATED = "activated"
 
 
 class EnrollmentStatusRequest(BaseModel):

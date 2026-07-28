@@ -7,6 +7,7 @@ import InstructorLandingPage from '../pages/InstructorLandingPage'
 import InstructorLayout from '../pages/InstructorLayout'
 import InstructorLoginPage from '../pages/InstructorLoginPage'
 import InstructorRosterImportPage from '../pages/InstructorRosterImportPage'
+import InstructorRosterPage from '../pages/InstructorRosterPage'
 import StudentActivationPage from '../pages/StudentActivationPage'
 import StudentLoginPage from '../pages/StudentLoginPage'
 import { useAuth } from './AuthProvider'
@@ -118,6 +119,10 @@ export default function AppRoutes() {
         <Route path="courses/:courseId" element={<InstructorCourseDetailPage />} />
         <Route
           path="courses/:courseId/roster"
+          element={<InstructorRosterPage />}
+        />
+        <Route
+          path="courses/:courseId/roster/import"
           element={<InstructorRosterImportPage />}
         />
       </Route>

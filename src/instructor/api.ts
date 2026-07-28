@@ -1,5 +1,9 @@
 import type {
+  ActivationCodeReissueResult,
   CreateInstructorCourseRequest,
+  InstructorEnrollment,
+  InstructorEnrollmentListQuery,
+  InstructorEnrollmentListResponse,
   InstructorCourse,
   InstructorCourseListResponse,
   RosterImportResult,
@@ -213,6 +217,8 @@ const ROSTER_STATUSES = new Set([
 ])
 const ACTIVATION_CODE_PATTERN = /^[A-Z2-9]{4}(?:-[A-Z2-9]{4}){2}$/
 const FORMULA_PREFIX_PATTERN = /^[=+\-@]/
+const USERNAME_PATTERN = /^[a-z0-9][a-z0-9._-]{0,63}$/
+const ENROLLMENT_STATUSES = new Set(['pending', 'active', 'disabled'])
 
 function parseNonnegativeCount(response: Response, name: string): number {
   const value = response.headers.get(name)
@@ -429,6 +435,204 @@ export async function importInstructorRoster(
     )
     throwForCourseResponse(response)
     return await parseRosterImportResponse(response, course.course_code)
+  } catch (error) {
+    return unavailableUnlessAborted(error)
+  }
+}
+
+function isNullableTimestamp(value: unknown): value is string | null {
+  return value === null || (typeof value === 'string' && isIsoTimestamp(value))
+}
+
+function parseInstructorEnrollment(value: unknown): InstructorEnrollment {
+  if (
+    !isRecord(value)
+    || 'password_hash' in value
+    || 'activation_code_hash' in value
+    || 'user_id' in value
+    || typeof value.enrollment_id !== 'string'
+    || !isUuid(value.enrollment_id)
+    || typeof value.berkeley_username !== 'string'
+    || !USERNAME_PATTERN.test(value.berkeley_username)
+    || (
+      value.nickname !== null
+      && (
+        typeof value.nickname !== 'string'
+        || value.nickname.length < 3
+        || value.nickname.length > 30
+        || value.nickname.trim() !== value.nickname
+      )
+    )
+    || typeof value.status !== 'string'
+    || !ENROLLMENT_STATUSES.has(value.status)
+    || typeof value.user_is_active !== 'boolean'
+    || typeof value.activated !== 'boolean'
+    || !isNullableTimestamp(value.activation_expires_at)
+    || !isNullableTimestamp(value.activation_used_at)
+    || typeof value.created_at !== 'string'
+    || !isIsoTimestamp(value.created_at)
+    || value.activated !== (value.activation_used_at !== null)
+    || (value.status === 'pending' && value.activated)
+    || (value.status === 'active' && !value.activated)
+  ) {
+    throw new InstructorCourseApiError('unavailable')
+  }
+
+  return {
+    enrollment_id: value.enrollment_id,
+    berkeley_username: value.berkeley_username,
+    nickname: value.nickname as string | null,
+    status: value.status as InstructorEnrollment['status'],
+    user_is_active: value.user_is_active,
+    activated: value.activated,
+    activation_expires_at: value.activation_expires_at,
+    activation_used_at: value.activation_used_at,
+    created_at: value.created_at,
+  }
+}
+
+function parseEnrollmentList(value: unknown): InstructorEnrollmentListResponse {
+  if (
+    !isRecord(value)
+    || !Array.isArray(value.items)
+    || !Number.isInteger(value.total)
+    || (value.total as number) < 0
+    || !Number.isInteger(value.offset)
+    || (value.offset as number) < 0
+    || !Number.isInteger(value.limit)
+    || (value.limit as number) < 1
+    || (value.limit as number) > 100
+  ) {
+    throw new InstructorCourseApiError('unavailable')
+  }
+
+  const items = value.items.map(parseInstructorEnrollment)
+  if (
+    items.length > (value.limit as number)
+    || items.length > (value.total as number)
+  ) {
+    throw new InstructorCourseApiError('unavailable')
+  }
+  return {
+    items,
+    total: value.total as number,
+    offset: value.offset as number,
+    limit: value.limit as number,
+  }
+}
+
+export async function getInstructorEnrollments(
+  courseId: string,
+  query: InstructorEnrollmentListQuery,
+  signal?: AbortSignal,
+): Promise<InstructorEnrollmentListResponse> {
+  const parameters = new URLSearchParams({
+    offset: String(query.offset),
+    limit: String(query.limit),
+  })
+  const search = query.search?.trim()
+  if (search) {
+    parameters.set('search', search)
+  }
+  if (query.activation_status) {
+    parameters.set('activation_status', query.activation_status)
+  }
+
+  try {
+    const response = await fetch(
+      `/api/instructor/courses/${encodeURIComponent(courseId)}/students?${parameters}`,
+      {
+        credentials: 'include',
+        signal,
+      },
+    )
+    throwForCourseResponse(response)
+    const result = parseEnrollmentList(await safeJson(response))
+    if (result.offset !== query.offset || result.limit !== query.limit) {
+      throw new InstructorCourseApiError('unavailable')
+    }
+    return result
+  } catch (error) {
+    return unavailableUnlessAborted(error)
+  }
+}
+
+const REISSUE_DOWNLOAD_FILENAME = 'regenerated-activation-code.csv'
+const MAX_REISSUE_RESPONSE_BYTES = 64 * 1024
+
+async function parseActivationReissueResponse(
+  response: Response,
+  course: InstructorCourse,
+  enrollment: InstructorEnrollment,
+): Promise<ActivationCodeReissueResult> {
+  const contentType = response.headers.get('content-type')?.toLowerCase() ?? ''
+  const disposition = response.headers.get('content-disposition')
+  const cacheControl = response.headers.get('cache-control')?.toLowerCase() ?? ''
+  const pragma = response.headers.get('pragma')?.toLowerCase() ?? ''
+  if (
+    !contentType.startsWith('text/csv')
+    || disposition !== `attachment; filename="${REISSUE_DOWNLOAD_FILENAME}"`
+    || !cacheControl.includes('no-store')
+    || pragma !== 'no-cache'
+  ) {
+    throw new InstructorCourseApiError('unavailable')
+  }
+
+  const bytes = await response.arrayBuffer()
+  if (bytes.byteLength === 0 || bytes.byteLength > MAX_REISSUE_RESPONSE_BYTES) {
+    throw new InstructorCourseApiError('unavailable')
+  }
+
+  let text: string
+  try {
+    text = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+  } catch {
+    throw new InstructorCourseApiError('unavailable')
+  }
+  const records = parseCsvRecords(text)
+  if (
+    records.length !== 2
+    || records[0].length !== ROSTER_HEADER.length
+    || records[0].some((value, index) => value !== ROSTER_HEADER[index])
+    || records[1].length !== ROSTER_HEADER.length
+  ) {
+    throw new InstructorCourseApiError('unavailable')
+  }
+
+  const row = records[1]
+  if (
+    row[0] !== spreadsheetSafeValue(enrollment.berkeley_username)
+    || row[1] !== spreadsheetSafeValue(course.course_code)
+    || !ACTIVATION_CODE_PATTERN.test(row[2])
+    || row[3] !== 'regenerated'
+    || !row[4]
+    || [row[0], row[1], row[3], row[4]]
+      .some((value) => FORMULA_PREFIX_PATTERN.test(value))
+  ) {
+    throw new InstructorCourseApiError('unavailable')
+  }
+
+  return {
+    csv: new Blob([bytes], { type: 'text/csv;charset=utf-8' }),
+  }
+}
+
+export async function regenerateInstructorActivationCode(
+  course: InstructorCourse,
+  enrollment: InstructorEnrollment,
+): Promise<ActivationCodeReissueResult> {
+  try {
+    const response = await fetch(
+      `/api/instructor/courses/${encodeURIComponent(course.id)}`
+      + `/enrollments/${encodeURIComponent(enrollment.enrollment_id)}`
+      + '/activation/regenerate',
+      {
+        method: 'POST',
+        credentials: 'include',
+      },
+    )
+    throwForCourseResponse(response)
+    return await parseActivationReissueResponse(response, course, enrollment)
   } catch (error) {
     return unavailableUnlessAborted(error)
   }
