@@ -24,6 +24,11 @@ export interface StudentLoginRequest {
   password: string
 }
 
+export interface InstructorLoginRequest {
+  username: string
+  password: string
+}
+
 export type ActivationPasswordMode = 'create' | 'confirm'
 
 export interface ActivationVerifyRequest {
@@ -48,6 +53,12 @@ export interface StudentAuthenticationResponse extends AuthenticationResponse {
   user: AuthenticatedUser & { role: 'student' }
   course: AuthenticatedCourse
   nickname: string
+}
+
+export interface InstructorAuthenticationResponse extends AuthenticationResponse {
+  user: AuthenticatedUser & { role: 'instructor' }
+  course?: null
+  nickname?: null
 }
 
 export type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated' | 'error'

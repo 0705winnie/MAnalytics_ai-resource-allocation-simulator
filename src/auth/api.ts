@@ -3,12 +3,15 @@ import type {
   ActivationVerificationResponse,
   ActivationVerifyRequest,
   AuthenticationResponse,
+  InstructorAuthenticationResponse,
+  InstructorLoginRequest,
   StudentAuthenticationResponse,
   StudentLoginRequest,
 } from './types'
 
 export type AuthApiErrorCode =
   | 'invalid_credentials'
+  | 'invalid_instructor_credentials'
   | 'invalid_activation'
   | 'activation_session_expired'
   | 'existing_password_unconfirmed'
@@ -90,6 +93,19 @@ function requireStudentSession(
   return value as StudentAuthenticationResponse
 }
 
+function requireInstructorSession(
+  value: AuthenticationResponse,
+): InstructorAuthenticationResponse {
+  if (
+    value.user.role !== 'instructor'
+    || (value.course !== undefined && value.course !== null)
+    || (value.nickname !== undefined && value.nickname !== null)
+  ) {
+    throw new AuthApiError('unavailable')
+  }
+  return value as InstructorAuthenticationResponse
+}
+
 function parseActivationVerificationResponse(
   value: unknown,
 ): ActivationVerificationResponse {
@@ -142,7 +158,10 @@ export async function getCurrentAuthentication(
     if (!response.ok) {
       throw new AuthApiError('unavailable')
     }
-    return parseAuthenticationResponse(await safeJson(response))
+    const session = parseAuthenticationResponse(await safeJson(response))
+    return session.user.role === 'student'
+      ? requireStudentSession(session)
+      : requireInstructorSession(session)
   } catch (error) {
     return unavailableUnlessAborted(error)
   }
@@ -165,6 +184,30 @@ export async function loginStudent(
       throw new AuthApiError('unavailable')
     }
     return requireStudentSession(
+      parseAuthenticationResponse(await safeJson(response)),
+    )
+  } catch (error) {
+    return unavailableUnlessAborted(error)
+  }
+}
+
+export async function loginInstructor(
+  request: InstructorLoginRequest,
+): Promise<InstructorAuthenticationResponse> {
+  try {
+    const response = await fetch('/api/auth/instructor/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(request),
+    })
+    if (response.status >= 400 && response.status < 500) {
+      throw new AuthApiError('invalid_instructor_credentials')
+    }
+    if (!response.ok) {
+      throw new AuthApiError('unavailable')
+    }
+    return requireInstructorSession(
       parseAuthenticationResponse(await safeJson(response)),
     )
   } catch (error) {

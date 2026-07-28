@@ -1,39 +1,23 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import App from '../App'
+import InstructorLandingPage from '../pages/InstructorLandingPage'
+import InstructorLoginPage from '../pages/InstructorLoginPage'
 import StudentActivationPage from '../pages/StudentActivationPage'
 import StudentLoginPage from '../pages/StudentLoginPage'
 import { useAuth } from './AuthProvider'
-import ProtectedRoute, {
+import RoleProtectedRoute, {
   AuthLoadingScreen,
   AuthUnavailableScreen,
-  RoleMismatchScreen,
+  roleHomePath,
 } from './ProtectedRoute'
+import type { ReactNode } from 'react'
+
+function AuthenticatedHomeRedirect() {
+  const { user } = useAuth()
+  return <Navigate to={user ? roleHomePath(user.role) : '/login'} replace />
+}
 
 function RootRedirect() {
-  const { status } = useAuth()
-
-  if (status === 'loading') {
-    return <AuthLoadingScreen />
-  }
-  if (status === 'error') {
-    return <AuthUnavailableScreen />
-  }
-  return <Navigate to={status === 'authenticated' ? '/app' : '/login'} replace />
-}
-
-function LoginRoute() {
-  const { status } = useAuth()
-
-  if (status === 'loading') {
-    return <AuthLoadingScreen />
-  }
-  if (status === 'authenticated') {
-    return <Navigate to="/app" replace />
-  }
-  return <StudentLoginPage />
-}
-
-function ActivationRoute() {
   const { status, user } = useAuth()
 
   if (status === 'loading') {
@@ -42,10 +26,40 @@ function ActivationRoute() {
   if (status === 'error') {
     return <AuthUnavailableScreen />
   }
+  return (
+    <Navigate
+      to={status === 'authenticated' && user ? roleHomePath(user.role) : '/login'}
+      replace
+    />
+  )
+}
+
+function PublicAuthRoute({ children }: { children: ReactNode }) {
+  const { status } = useAuth()
+
+  if (status === 'loading') {
+    return <AuthLoadingScreen />
+  }
+  if (status === 'error') {
+    return <AuthUnavailableScreen />
+  }
   if (status === 'authenticated') {
-    return user?.role === 'student'
-      ? <Navigate to="/app" replace />
-      : <RoleMismatchScreen />
+    return <AuthenticatedHomeRedirect />
+  }
+  return children
+}
+
+function ActivationRoute() {
+  const { status } = useAuth()
+
+  if (status === 'loading') {
+    return <AuthLoadingScreen />
+  }
+  if (status === 'error') {
+    return <AuthUnavailableScreen />
+  }
+  if (status === 'authenticated') {
+    return <AuthenticatedHomeRedirect />
   }
   return <StudentActivationPage />
 }
@@ -54,14 +68,43 @@ export default function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<RootRedirect />} />
-      <Route path="/login" element={<LoginRoute />} />
+      <Route
+        path="/login"
+        element={(
+          <PublicAuthRoute>
+            <StudentLoginPage />
+          </PublicAuthRoute>
+        )}
+      />
+      <Route
+        path="/instructor/login"
+        element={(
+          <PublicAuthRoute>
+            <InstructorLoginPage />
+          </PublicAuthRoute>
+        )}
+      />
       <Route path="/activate" element={<ActivationRoute />} />
       <Route
         path="/app/*"
         element={(
-          <ProtectedRoute>
+          <RoleProtectedRoute
+            requiredRole="student"
+            unauthenticatedPath="/login"
+          >
             <App />
-          </ProtectedRoute>
+          </RoleProtectedRoute>
+        )}
+      />
+      <Route
+        path="/instructor/*"
+        element={(
+          <RoleProtectedRoute
+            requiredRole="instructor"
+            unauthenticatedPath="/instructor/login"
+          >
+            <InstructorLandingPage />
+          </RoleProtectedRoute>
         )}
       />
       <Route path="*" element={<Navigate to="/" replace />} />

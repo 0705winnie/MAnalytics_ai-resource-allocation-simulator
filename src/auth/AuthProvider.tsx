@@ -11,6 +11,7 @@ import {
   AuthApiError,
   completeStudentActivation as requestActivationCompletion,
   getCurrentAuthentication,
+  loginInstructor as requestInstructorLogin,
   loginStudent as requestStudentLogin,
   logoutCurrentSession,
 } from './api'
@@ -20,6 +21,7 @@ import type {
   AuthenticatedUser,
   AuthenticationResponse,
   AuthStatus,
+  InstructorLoginRequest,
   StudentLoginRequest,
 } from './types'
 
@@ -33,6 +35,7 @@ interface AuthContextValue {
   nickname: string | null
   error: string | null
   loginStudent: (request: StudentLoginRequest) => Promise<void>
+  loginInstructor: (request: InstructorLoginRequest) => Promise<void>
   completeStudentActivation: (request: ActivationCompleteRequest) => Promise<void>
   logout: () => Promise<void>
   refreshAuth: () => Promise<void>
@@ -97,6 +100,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [applySession])
 
+  const loginInstructor = useCallback(async (request: InstructorLoginRequest) => {
+    try {
+      const nextSession = await requestInstructorLogin(request)
+      applySession(nextSession)
+    } catch (loginError) {
+      setError(
+        loginError instanceof AuthApiError
+        && loginError.code === 'invalid_instructor_credentials'
+          ? null
+          : AUTH_SERVICE_UNAVAILABLE_MESSAGE,
+      )
+      throw loginError
+    }
+  }, [applySession])
+
   const completeStudentActivation = useCallback(
     async (request: ActivationCompleteRequest) => {
       try {
@@ -132,12 +150,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     nickname: session?.nickname ?? null,
     error,
     loginStudent,
+    loginInstructor,
     completeStudentActivation,
     logout,
     refreshAuth,
   }), [
     completeStudentActivation,
     error,
+    loginInstructor,
     loginStudent,
     logout,
     refreshAuth,

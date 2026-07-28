@@ -1,6 +1,11 @@
 import { useState, type ReactNode } from 'react'
-import { Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { Navigate } from 'react-router-dom'
 import { useAuth } from './AuthProvider'
+import type { AuthRole } from './types'
+
+export function roleHomePath(role: AuthRole): '/app' | '/instructor' {
+  return role === 'student' ? '/app' : '/instructor'
+}
 
 function PageShell({ children }: { children: ReactNode }) {
   return (
@@ -54,48 +59,18 @@ export function AuthUnavailableScreen() {
   )
 }
 
-export function RoleMismatchScreen() {
-  const { logout } = useAuth()
-  const navigate = useNavigate()
-  const [signingOut, setSigningOut] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  async function handleSignOut() {
-    if (signingOut) return
-    setSigningOut(true)
-    setError(null)
-    try {
-      await logout()
-      navigate('/login', { replace: true })
-    } catch {
-      setError('Sign out could not be completed. Please try again.')
-    } finally {
-      setSigningOut(false)
-    }
-  }
-
-  return (
-    <PageShell>
-      <h1 className="text-xl font-bold">Student dashboard unavailable</h1>
-      <p className="mt-3 text-sm text-ink-dim">
-        This session does not have Student access. Instructor tools will be added in a later phase.
-      </p>
-      {error && <p className="mt-3 text-sm text-red-700" role="alert">{error}</p>}
-      <button
-        type="button"
-        onClick={() => void handleSignOut()}
-        disabled={signingOut}
-        className="mt-6 rounded-md border border-line-strong px-4 py-2 text-sm font-semibold text-ink transition-colors hover:bg-well disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {signingOut ? 'Signing out…' : 'Sign Out'}
-      </button>
-    </PageShell>
-  )
+interface RoleProtectedRouteProps {
+  children: ReactNode
+  requiredRole: AuthRole
+  unauthenticatedPath: '/login' | '/instructor/login'
 }
 
-export default function ProtectedRoute({ children }: { children: ReactNode }) {
+export default function RoleProtectedRoute({
+  children,
+  requiredRole,
+  unauthenticatedPath,
+}: RoleProtectedRouteProps) {
   const { status, user } = useAuth()
-  const location = useLocation()
 
   if (status === 'loading') {
     return <AuthLoadingScreen />
@@ -104,10 +79,10 @@ export default function ProtectedRoute({ children }: { children: ReactNode }) {
     return <AuthUnavailableScreen />
   }
   if (status === 'unauthenticated' || !user) {
-    return <Navigate to="/login" replace state={{ from: location.pathname }} />
+    return <Navigate to={unauthenticatedPath} replace />
   }
-  if (user.role !== 'student') {
-    return <RoleMismatchScreen />
+  if (user.role !== requiredRole) {
+    return <Navigate to={roleHomePath(user.role)} replace />
   }
   return children
 }

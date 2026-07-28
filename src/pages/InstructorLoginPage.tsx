@@ -6,12 +6,11 @@ import {
   useAuth,
 } from '../auth/AuthProvider'
 
-const INVALID_CREDENTIALS_MESSAGE = 'Invalid course, username, or password.'
+const INVALID_INSTRUCTOR_CREDENTIALS_MESSAGE = 'Invalid username or password.'
 
-export default function StudentLoginPage() {
+export default function InstructorLoginPage() {
   const navigate = useNavigate()
-  const { status, error: authError, loginStudent, refreshAuth } = useAuth()
-  const [courseCode, setCourseCode] = useState('')
+  const { loginInstructor } = useAuth()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -24,20 +23,17 @@ export default function StudentLoginPage() {
     setSubmitting(true)
     setFormError(null)
     try {
-      await loginStudent({
-        course_code: courseCode,
-        berkeley_username: username,
-        password,
-      })
-      setPassword('')
-      navigate('/app', { replace: true })
+      await loginInstructor({ username, password })
+      navigate('/instructor', { replace: true })
     } catch (error) {
       setFormError(
-        error instanceof AuthApiError && error.code === 'invalid_credentials'
-          ? INVALID_CREDENTIALS_MESSAGE
+        error instanceof AuthApiError
+        && error.code === 'invalid_instructor_credentials'
+          ? INVALID_INSTRUCTOR_CREDENTIALS_MESSAGE
           : AUTH_SERVICE_UNAVAILABLE_MESSAGE,
       )
     } finally {
+      setPassword('')
       setSubmitting(false)
     }
   }
@@ -51,61 +47,39 @@ export default function StudentLoginPage() {
               Resource Allocation Simulator
             </p>
             <h1 className="mt-8 max-w-lg text-3xl font-bold tracking-tight sm:text-4xl">
-              Continue your course simulation.
+              Manage your course environment.
             </h1>
             <p className="mt-4 max-w-md text-sm leading-6 text-white/80">
-              Sign in with the course and credentials established during roster activation.
-              Your authenticated nickname identifies this course session.
+              Instructor access connects securely to the account system.
+              Course and roster tools will arrive in the next phase.
             </p>
           </section>
 
-          <section className="p-8 sm:p-12" aria-labelledby="student-login-title">
-            <p className="text-xs font-mono uppercase tracking-widest text-ink-faint">
-              Student access
+          <section className="p-8 sm:p-12" aria-labelledby="instructor-login-title">
+            <p className="font-mono text-xs uppercase tracking-widest text-ink-faint">
+              Instructor access
             </p>
-            <h2 id="student-login-title" className="mt-2 text-2xl font-bold tracking-tight">
+            <h2
+              id="instructor-login-title"
+              className="mt-2 text-2xl font-bold tracking-tight"
+            >
               Sign in
             </h2>
 
-            {status === 'error' && authError && (
-              <div className="mt-5 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800" role="alert">
-                <p>{AUTH_SERVICE_UNAVAILABLE_MESSAGE}</p>
-                <button
-                  type="button"
-                  onClick={() => void refreshAuth()}
-                  className="mt-2 font-semibold underline underline-offset-2"
+            <form
+              className="mt-7 space-y-5"
+              onSubmit={(event) => void handleSubmit(event)}
+            >
+              <div>
+                <label
+                  htmlFor="instructor-username"
+                  className="block text-sm font-medium text-ink-dim"
                 >
-                  Retry session check
-                </button>
-              </div>
-            )}
-
-            <form className="mt-7 space-y-5" onSubmit={(event) => void handleSubmit(event)}>
-              <div>
-                <label htmlFor="course-code" className="block text-sm font-medium text-ink-dim">
-                  Course Code
+                  Instructor Username
                 </label>
                 <input
-                  id="course-code"
-                  name="course_code"
-                  type="text"
-                  autoComplete="organization"
-                  required
-                  maxLength={64}
-                  value={courseCode}
-                  onChange={(event) => setCourseCode(event.target.value)}
-                  disabled={submitting}
-                  className="mt-2 w-full rounded-md border border-line-strong bg-white px-3 py-2.5 text-sm text-ink outline-none transition focus:border-hud-accent focus:ring-2 focus:ring-hud-accent/15 disabled:opacity-60"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="berkeley-username" className="block text-sm font-medium text-ink-dim">
-                  Berkeley Username
-                </label>
-                <input
-                  id="berkeley-username"
-                  name="berkeley_username"
+                  id="instructor-username"
+                  name="username"
                   type="text"
                   autoComplete="username"
                   required
@@ -118,11 +92,14 @@ export default function StudentLoginPage() {
               </div>
 
               <div>
-                <label htmlFor="student-password" className="block text-sm font-medium text-ink-dim">
+                <label
+                  htmlFor="instructor-password"
+                  className="block text-sm font-medium text-ink-dim"
+                >
                   Password
                 </label>
                 <input
-                  id="student-password"
+                  id="instructor-password"
                   name="password"
                   type="password"
                   autoComplete="current-password"
@@ -136,7 +113,10 @@ export default function StudentLoginPage() {
               </div>
 
               {formError && (
-                <p className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800" role="alert">
+                <p
+                  className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800"
+                  role="alert"
+                >
                   {formError}
                 </p>
               )}
@@ -151,20 +131,11 @@ export default function StudentLoginPage() {
 
               <button
                 type="button"
-                onClick={() => navigate('/activate')}
+                onClick={() => navigate('/login')}
                 disabled={submitting}
                 className="w-full rounded-md border border-line-strong px-4 py-2.5 text-sm font-semibold text-ink-dim transition-colors hover:bg-well focus:outline-none focus-visible:ring-2 focus-visible:ring-hud-accent/30 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                First-time activation
-              </button>
-
-              <button
-                type="button"
-                onClick={() => navigate('/instructor/login')}
-                disabled={submitting}
-                className="w-full px-4 py-2 text-sm font-semibold text-ink-faint underline decoration-line-strong underline-offset-4 transition-colors hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-hud-accent/30 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Instructor sign in
+                Back to Student Sign In
               </button>
             </form>
           </section>
