@@ -1,10 +1,13 @@
 """Password and one-time-secret hashing helpers."""
 
+import secrets
+
 from pwdlib import PasswordHash
 from pwdlib.exceptions import UnknownHashError
 
 
 _PASSWORD_HASH = PasswordHash.recommended()
+DUMMY_PASSWORD_HASH = _PASSWORD_HASH.hash(secrets.token_urlsafe(32))
 
 
 def hash_password(password: str) -> str:

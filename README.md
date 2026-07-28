@@ -243,6 +243,20 @@ Production deployments must rate-limit activation verification at the reverse
 proxy or a shared-storage enforcement layer. A process-local counter is not
 complete protection for multiple application instances.
 
+### Student regular login
+
+After first-time activation, a student signs in through
+`POST /api/auth/student/login` with the course code, Berkeley username, and
+global User password. The selected active Enrollment determines the
+course-specific nickname and the scope of the Student access session. The
+access token remains only in the existing HttpOnly cookie; it is not returned
+in the response or stored in `localStorage`.
+
+The Vite proxy exposes the same handler internally at `/auth/student/login`.
+Production deployment must add shared or proxy-level login rate limiting during
+the later security phase; this MVP does not treat a process-local counter as
+complete protection.
+
 ## Running locally
 
 Two processes, run in separate terminals from the repo root:

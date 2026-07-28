@@ -26,7 +26,7 @@ from app.core.auth import (
     require_instructor,
 )
 from app.core.config import AuthSettings
-from app.core.security import hash_password
+from app.core.security import DUMMY_PASSWORD_HASH, hash_password
 from app.db.session import get_db
 from app.main import create_app
 from app.models import CourseInstance, Enrollment, User
@@ -384,6 +384,24 @@ def test_all_invalid_login_states_return_identical_unauthorized_response(
     assert response.json() == {"detail": "Invalid username or password"}
     assert ACCESS_COOKIE_NAME not in response.cookies
     assert "set-cookie" not in response.headers
+
+
+def test_instructor_missing_user_uses_shared_dummy_hash_once(
+    monkeypatch,
+    client,
+):
+    verification_hashes: list[str] = []
+
+    def track_verification(_password: str, stored_hash: str) -> bool:
+        verification_hashes.append(stored_hash)
+        return False
+
+    monkeypatch.setattr(auth_router, "verify_password", track_verification)
+
+    response = _login(client, username="does-not-exist")
+
+    assert response.status_code == 401
+    assert verification_hashes == [DUMMY_PASSWORD_HASH]
 
 
 def test_me_returns_minimal_identity_for_valid_cookie(

@@ -5,10 +5,13 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from app.core.activation_auth import ACTIVATION_COOKIE_NAME
 from app.core.auth import (
     ACCESS_COOKIE_NAME,
     AuthContext,
@@ -16,9 +19,8 @@ from app.core.auth import (
     create_access_token,
     get_auth_context,
 )
-from app.core.activation_auth import ACTIVATION_COOKIE_NAME
 from app.core.config import AuthSettings, get_auth_settings
-from app.core.security import hash_password, verify_password
+from app.core.security import DUMMY_PASSWORD_HASH, verify_password
 from app.db.session import get_db
 from app.models import User
 from app.models.enums import UserRole
@@ -26,12 +28,14 @@ from app.schemas.auth import (
     AuthenticatedCourseResponse,
     AuthenticatedUserResponse,
     AuthenticationResponse,
+    StudentLoginRequest,
 )
+from app.services.student_authentication import authenticate_student
 
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 INVALID_CREDENTIALS_MESSAGE = "Invalid username or password"
-_DUMMY_PASSWORD_HASH = hash_password("dummy-authentication-password")
+INVALID_STUDENT_CREDENTIALS_MESSAGE = "Invalid course, username, or password"
 
 
 class InstructorLoginRequest(BaseModel):
@@ -99,7 +103,7 @@ def instructor_login(
     password_hash = (
         user.password_hash
         if user is not None and user.password_hash is not None
-        else _DUMMY_PASSWORD_HASH
+        else DUMMY_PASSWORD_HASH
     )
     password_is_valid = verify_password(request.password, password_hash)
     if (
@@ -129,6 +133,95 @@ def instructor_login(
         path="/",
     )
     return _authentication_response(user)
+
+
+def _student_login_failure(
+    *,
+    status_code: int,
+    detail: str,
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=status_code,
+        content={"detail": detail},
+        headers={
+            "Cache-Control": "no-store",
+            "Pragma": "no-cache",
+        },
+    )
+
+
+@router.post(
+    "/student/login",
+    response_model=AuthenticationResponse,
+    response_model_exclude_none=True,
+)
+def student_login(
+    request: StudentLoginRequest,
+    response: Response,
+    db: Annotated[Session, Depends(get_db)],
+    settings: Annotated[AuthSettings, Depends(get_auth_settings)],
+) -> AuthenticationResponse | Response:
+    """Authenticate one active Student enrollment and set its access cookie."""
+
+    try:
+        credentials = authenticate_student(
+            db,
+            course_code=request.course_code,
+            berkeley_username=request.berkeley_username,
+            password=request.password,
+        )
+    except SQLAlchemyError:
+        db.rollback()
+        return _student_login_failure(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication is unavailable",
+        )
+    if credentials is None:
+        return _student_login_failure(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=INVALID_STUDENT_CREDENTIALS_MESSAGE,
+        )
+
+    try:
+        access_token = create_access_token(
+            credentials.user.id,
+            UserRole.STUDENT,
+            settings,
+            course_id=credentials.course.id,
+            enrollment_id=credentials.enrollment.id,
+        )
+    except AuthConfigurationError:
+        return _student_login_failure(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication is unavailable",
+        )
+
+    response.set_cookie(
+        key=ACCESS_COOKIE_NAME,
+        value=access_token,
+        max_age=settings.access_token_minutes * 60,
+        httponly=True,
+        secure=settings.auth_cookie_secure,
+        samesite="lax",
+        path="/",
+    )
+    response.delete_cookie(
+        key=ACTIVATION_COOKIE_NAME,
+        path="/",
+        secure=settings.auth_cookie_secure,
+        httponly=True,
+        samesite="lax",
+    )
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["Pragma"] = "no-cache"
+    return _authentication_response(
+        credentials.user,
+        context=AuthContext(
+            user=credentials.user,
+            course=credentials.course,
+            enrollment=credentials.enrollment,
+        ),
+    )
 
 
 @router.get(
