@@ -3,8 +3,8 @@ import { Navigate } from 'react-router-dom'
 import { useAuth } from './AuthProvider'
 import type { AuthRole } from './types'
 
-export function roleHomePath(role: AuthRole): '/app' | '/instructor' {
-  return role === 'student' ? '/app' : '/instructor'
+export function roleHomePath(role: AuthRole): '/app' | '/instructor/courses' {
+  return role === 'student' ? '/app' : '/instructor/courses'
 }
 
 function PageShell({ children }: { children: ReactNode }) {

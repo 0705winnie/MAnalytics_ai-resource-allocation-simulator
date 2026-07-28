@@ -3,7 +3,6 @@ import App from '../App'
 import InstructorCourseCreatePage from '../pages/InstructorCourseCreatePage'
 import InstructorCourseDetailPage from '../pages/InstructorCourseDetailPage'
 import InstructorCoursesPage from '../pages/InstructorCoursesPage'
-import InstructorLandingPage from '../pages/InstructorLandingPage'
 import InstructorLayout from '../pages/InstructorLayout'
 import InstructorLoginPage from '../pages/InstructorLoginPage'
 import InstructorRosterImportPage from '../pages/InstructorRosterImportPage'
@@ -113,7 +112,7 @@ export default function AppRoutes() {
           </RoleProtectedRoute>
         )}
       >
-        <Route index element={<InstructorLandingPage />} />
+        <Route index element={<Navigate to="courses" replace />} />
         <Route path="courses" element={<InstructorCoursesPage />} />
         <Route path="courses/new" element={<InstructorCourseCreatePage />} />
         <Route path="courses/:courseId" element={<InstructorCourseDetailPage />} />

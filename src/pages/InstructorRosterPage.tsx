@@ -7,12 +7,16 @@ import {
 } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
+import CourseSectionNavigation from '../instructor/CourseSectionNavigation'
 import {
   getInstructorCourse,
   getInstructorEnrollments,
   InstructorCourseApiError,
   regenerateInstructorActivationCode,
 } from '../instructor/api'
+import InstructorBreadcrumbs, {
+  courseBreadcrumbLabel,
+} from '../instructor/InstructorBreadcrumbs'
 import type {
   ActivationCodeReissueResult,
   EnrollmentActivationFilter,
@@ -315,15 +319,30 @@ export default function InstructorRosterPage() {
     roster?.total === 0
     && (Boolean(appliedSearch) || activationFilter !== 'all')
   )
+  const visibleCourse = course?.id === courseId ? course : null
 
   return (
     <main className="mx-auto w-full max-w-6xl px-6 py-10 sm:px-10">
-      <Link
-        to={`/instructor/courses/${courseId}`}
-        className="text-sm font-semibold text-hud-accent hover:text-hud-accent-hover"
-      >
-        ← Back to Course
-      </Link>
+      <InstructorBreadcrumbs
+        items={[
+          {
+            label: 'My Courses',
+            to: '/instructor/courses',
+            disabled: regenerating,
+          },
+          ...(visibleCourse
+            ? [{
+              label: courseBreadcrumbLabel(
+                visibleCourse.course_code,
+                visibleCourse.semester,
+              ),
+              to: `/instructor/courses/${visibleCourse.id}`,
+              disabled: regenerating,
+            }]
+            : []),
+          { label: 'Roster', current: true },
+        ]}
+      />
 
       {(courseLoading || (course !== null && course.id !== courseId)) && (
         <section
@@ -372,6 +391,12 @@ export default function InstructorRosterPage() {
               </span>
             )}
           </header>
+
+          <CourseSectionNavigation
+            courseId={course.id}
+            currentSection="roster"
+            navigationDisabled={regenerating}
+          />
 
           <section className="mt-8 rounded-xl border border-line bg-white p-5 shadow-card sm:p-6">
             <form

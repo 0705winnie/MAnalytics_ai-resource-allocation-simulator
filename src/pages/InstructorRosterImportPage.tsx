@@ -8,12 +8,16 @@ import {
 } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
+import CourseSectionNavigation from '../instructor/CourseSectionNavigation'
 import {
   getInstructorCourse,
   importInstructorRoster,
   InstructorCourseApiError,
   MAX_ROSTER_FILE_BYTES,
 } from '../instructor/api'
+import InstructorBreadcrumbs, {
+  courseBreadcrumbLabel,
+} from '../instructor/InstructorBreadcrumbs'
 import type {
   InstructorCourse,
   RosterImportResult,
@@ -181,26 +185,39 @@ export default function InstructorRosterImportPage() {
       + result.summary.duplicate_input
     )
     : 0
+  const visibleCourse = course?.id === courseId ? course : null
 
   return (
     <main className="mx-auto w-full max-w-5xl px-6 py-10 sm:px-10">
-      {importing ? (
-        <span
-          className="cursor-not-allowed text-sm font-semibold text-ink-faint"
-          aria-disabled="true"
-        >
-          ← Back to Roster Management
-        </span>
-      ) : (
-        <Link
-          to={`/instructor/courses/${courseId}/roster`}
-          className="text-sm font-semibold text-hud-accent hover:text-hud-accent-hover"
-        >
-          ← Back to Roster Management
-        </Link>
-      )}
+      <InstructorBreadcrumbs
+        items={[
+          {
+            label: 'My Courses',
+            to: '/instructor/courses',
+            disabled: importing,
+          },
+          ...(visibleCourse
+            ? [
+              {
+                label: courseBreadcrumbLabel(
+                  visibleCourse.course_code,
+                  visibleCourse.semester,
+                ),
+                to: `/instructor/courses/${visibleCourse.id}`,
+                disabled: importing,
+              },
+              {
+                label: 'Roster',
+                to: `/instructor/courses/${visibleCourse.id}/roster`,
+                disabled: importing,
+              },
+            ]
+            : []),
+          { label: 'Import', current: true },
+        ]}
+      />
 
-      {courseLoading && (
+      {(courseLoading || (course !== null && course.id !== courseId)) && (
         <section
           className="mt-6 rounded-xl border border-line bg-white p-6 shadow-card"
           aria-live="polite"
@@ -209,7 +226,7 @@ export default function InstructorRosterImportPage() {
         </section>
       )}
 
-      {!courseLoading && courseError && (
+      {!courseLoading && !visibleCourse && courseError && (
         <section className="mt-6 rounded-xl border border-red-200 bg-red-50 p-6">
           <p className="text-sm text-red-800" role="alert">{courseError}</p>
           <button
@@ -222,19 +239,27 @@ export default function InstructorRosterImportPage() {
         </section>
       )}
 
-      {!courseLoading && !courseError && course && (
+      {!courseLoading && !courseError && visibleCourse && (
         <>
           <header className="mt-6">
             <p className="font-mono text-xs uppercase tracking-wider text-hud-accent">
-              {course.course_code}
+              {visibleCourse.course_code}
             </p>
             <h1 className="mt-2 text-3xl font-bold tracking-tight">
               Import Roster
             </h1>
-            <p className="mt-2 text-sm text-ink-dim">{course.course_name}</p>
+            <p className="mt-2 text-sm text-ink-dim">
+              {visibleCourse.course_name}
+            </p>
           </header>
 
-          {!course.is_active && (
+          <CourseSectionNavigation
+            courseId={visibleCourse.id}
+            currentSection="roster"
+            navigationDisabled={importing}
+          />
+
+          {!visibleCourse.is_active && (
             <p
               className="mt-6 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"
               role="alert"
@@ -277,7 +302,7 @@ export default function InstructorRosterImportPage() {
                 onChange={handleFileChange}
                 disabled={
                   importing
-                  || !course.is_active
+                  || !visibleCourse.is_active
                   || hasUndownloadedCodes
                 }
                 className="mt-2 block w-full rounded-md border border-line-strong bg-white text-sm text-ink file:mr-4 file:border-0 file:bg-well file:px-4 file:py-2.5 file:text-sm file:font-semibold file:text-ink hover:file:bg-line focus:outline-none focus-visible:ring-2 focus-visible:ring-hud-accent/30 disabled:opacity-60"
@@ -313,7 +338,7 @@ export default function InstructorRosterImportPage() {
                   </span>
                 ) : (
                   <Link
-                    to={`/instructor/courses/${course.id}/roster`}
+                    to={`/instructor/courses/${visibleCourse.id}/roster`}
                     className="rounded-md border border-line-strong px-4 py-2.5 text-center text-sm font-semibold text-ink hover:bg-well"
                   >
                     Cancel
@@ -321,7 +346,7 @@ export default function InstructorRosterImportPage() {
                 )}
                 <button
                   type="submit"
-                  disabled={importing || !file || !course.is_active}
+                  disabled={importing || !file || !visibleCourse.is_active}
                   className="rounded-md bg-hud-accent px-4 py-2.5 text-sm font-semibold text-white hover:bg-hud-accent-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-hud-accent/40 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {importing ? 'Importing…' : 'Import Roster'}

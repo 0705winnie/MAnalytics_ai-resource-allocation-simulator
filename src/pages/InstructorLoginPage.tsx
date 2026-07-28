@@ -24,7 +24,7 @@ export default function InstructorLoginPage() {
     setFormError(null)
     try {
       await loginInstructor({ username, password })
-      navigate('/instructor', { replace: true })
+      navigate('/instructor/courses', { replace: true })
     } catch (error) {
       setFormError(
         error instanceof AuthApiError
@@ -51,7 +51,8 @@ export default function InstructorLoginPage() {
             </h1>
             <p className="mt-4 max-w-md text-sm leading-6 text-white/80">
               Instructor access connects securely to the account system.
-              Course and roster tools will arrive in the next phase.
+              Open your courses and manage their rosters in one protected
+              workspace.
             </p>
           </section>
 

@@ -5,6 +5,7 @@ import {
   createInstructorCourse,
   InstructorCourseApiError,
 } from '../instructor/api'
+import InstructorBreadcrumbs from '../instructor/InstructorBreadcrumbs'
 
 interface FieldErrors {
   courseCode?: string
@@ -84,7 +85,14 @@ export default function InstructorCourseCreatePage() {
 
   return (
     <main className="mx-auto w-full max-w-3xl px-6 py-10 sm:px-10">
-      <p className="font-mono text-xs uppercase tracking-[0.18em] text-hud-accent">
+      <InstructorBreadcrumbs
+        items={[
+          { label: 'My Courses', to: '/instructor/courses' },
+          { label: 'Create Course', current: true },
+        ]}
+      />
+
+      <p className="mt-6 font-mono text-xs uppercase tracking-[0.18em] text-hud-accent">
         Course management
       </p>
       <h1 className="mt-2 text-3xl font-bold tracking-tight">Create Course</h1>

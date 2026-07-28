@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
+import CourseSectionNavigation from '../instructor/CourseSectionNavigation'
 import {
   getInstructorCourse,
   InstructorCourseApiError,
 } from '../instructor/api'
+import InstructorBreadcrumbs, {
+  courseBreadcrumbLabel,
+} from '../instructor/InstructorBreadcrumbs'
 import type { InstructorCourse } from '../instructor/types'
 
 export default function InstructorCourseDetailPage() {
@@ -59,16 +63,26 @@ export default function InstructorCourseDetailPage() {
     return () => controller.abort()
   }, [courseId, refreshAuth, requestVersion])
 
+  const visibleCourse = course?.id === courseId ? course : null
+
   return (
     <main className="mx-auto w-full max-w-5xl px-6 py-10 sm:px-10">
-      <Link
-        to="/instructor/courses"
-        className="text-sm font-semibold text-hud-accent hover:text-hud-accent-hover"
-      >
-        ← Back to My Courses
-      </Link>
+      <InstructorBreadcrumbs
+        items={[
+          { label: 'My Courses', to: '/instructor/courses' },
+          {
+            label: visibleCourse
+              ? courseBreadcrumbLabel(
+                visibleCourse.course_code,
+                visibleCourse.semester,
+              )
+              : 'Course',
+            current: true,
+          },
+        ]}
+      />
 
-      {loading && (
+      {(loading || (course !== null && course.id !== courseId)) && (
         <section
           className="mt-6 rounded-xl border border-line bg-white p-6 shadow-card"
           aria-live="polite"
@@ -77,7 +91,7 @@ export default function InstructorCourseDetailPage() {
         </section>
       )}
 
-      {!loading && error && (
+      {!loading && !visibleCourse && error && (
         <section className="mt-6 rounded-xl border border-red-200 bg-red-50 p-6">
           <p className="text-sm text-red-800" role="alert">{error}</p>
           <button
@@ -90,31 +104,38 @@ export default function InstructorCourseDetailPage() {
         </section>
       )}
 
-      {!loading && !error && course && (
+      {!loading && !error && visibleCourse && (
         <>
           <section className="mt-6 rounded-xl border border-line bg-white p-6 shadow-card sm:p-8">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <p className="font-mono text-xs uppercase tracking-wider text-hud-accent">
-                  {course.course_code}
+                  {visibleCourse.course_code}
                 </p>
                 <h1 className="mt-2 text-3xl font-bold tracking-tight">
-                  {course.course_name}
+                  {visibleCourse.course_name}
                 </h1>
-                <p className="mt-3 text-sm text-ink-dim">{course.semester}</p>
+                <p className="mt-3 text-sm text-ink-dim">
+                  {visibleCourse.semester}
+                </p>
               </div>
               <span
                 className={[
                   'w-fit rounded-full px-3 py-1 text-xs font-semibold',
-                  course.is_active
+                  visibleCourse.is_active
                     ? 'bg-emerald-50 text-emerald-700'
                     : 'bg-slate-100 text-slate-600',
                 ].join(' ')}
               >
-                {course.is_active ? 'Active' : 'Inactive'}
+                {visibleCourse.is_active ? 'Active' : 'Inactive'}
               </span>
             </div>
           </section>
+
+          <CourseSectionNavigation
+            courseId={visibleCourse.id}
+            currentSection="overview"
+          />
 
           <section className="mt-6 rounded-xl border border-line bg-white p-6 shadow-card sm:p-8">
             <p className="font-mono text-xs uppercase tracking-wider text-ink-faint">
@@ -127,7 +148,7 @@ export default function InstructorCourseDetailPage() {
               pending enrollments.
             </p>
             <Link
-              to={`/instructor/courses/${course.id}/roster`}
+              to={`/instructor/courses/${visibleCourse.id}/roster`}
               className="mt-5 inline-flex rounded-md bg-hud-accent px-4 py-2.5 text-sm font-semibold text-white hover:bg-hud-accent-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-hud-accent/40 focus-visible:ring-offset-2"
             >
               Manage Roster

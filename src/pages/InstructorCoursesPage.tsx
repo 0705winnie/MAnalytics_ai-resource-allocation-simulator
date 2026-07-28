@@ -5,6 +5,7 @@ import {
   getInstructorCourses,
   InstructorCourseApiError,
 } from '../instructor/api'
+import InstructorBreadcrumbs from '../instructor/InstructorBreadcrumbs'
 import type { InstructorCourseListResponse } from '../instructor/types'
 
 const COURSE_SERVICE_ERROR = 'Course management is temporarily unavailable.'
@@ -59,14 +60,19 @@ export default function InstructorCoursesPage() {
 
   return (
     <main className="mx-auto w-full max-w-6xl px-6 py-10 sm:px-10">
-      <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+      <InstructorBreadcrumbs
+        items={[{ label: 'My Courses', current: true }]}
+      />
+
+      <div className="mt-6 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="font-mono text-xs uppercase tracking-[0.18em] text-hud-accent">
             Course management
           </p>
           <h1 className="mt-2 text-3xl font-bold tracking-tight">My Courses</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-ink-dim">
-            Only course instances created by your Instructor account are shown.
+            View your course instances and open a course to manage its roster
+            and future course-level tools.
           </p>
         </div>
         <Link
@@ -157,7 +163,7 @@ export default function InstructorCoursesPage() {
                     to={`/instructor/courses/${course.id}`}
                     className="inline-flex rounded-md border border-line-strong px-4 py-2 text-sm font-semibold text-ink hover:bg-well focus:outline-none focus-visible:ring-2 focus-visible:ring-hud-accent/30"
                   >
-                    Manage Course
+                    Open Course
                   </Link>
                 </div>
               </article>
