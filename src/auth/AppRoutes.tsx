@@ -1,6 +1,10 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import App from '../App'
+import InstructorCourseCreatePage from '../pages/InstructorCourseCreatePage'
+import InstructorCourseDetailPage from '../pages/InstructorCourseDetailPage'
+import InstructorCoursesPage from '../pages/InstructorCoursesPage'
 import InstructorLandingPage from '../pages/InstructorLandingPage'
+import InstructorLayout from '../pages/InstructorLayout'
 import InstructorLoginPage from '../pages/InstructorLoginPage'
 import StudentActivationPage from '../pages/StudentActivationPage'
 import StudentLoginPage from '../pages/StudentLoginPage'
@@ -97,16 +101,21 @@ export default function AppRoutes() {
         )}
       />
       <Route
-        path="/instructor/*"
+        path="/instructor"
         element={(
           <RoleProtectedRoute
             requiredRole="instructor"
             unauthenticatedPath="/instructor/login"
           >
-            <InstructorLandingPage />
+            <InstructorLayout />
           </RoleProtectedRoute>
         )}
-      />
+      >
+        <Route index element={<InstructorLandingPage />} />
+        <Route path="courses" element={<InstructorCoursesPage />} />
+        <Route path="courses/new" element={<InstructorCourseCreatePage />} />
+        <Route path="courses/:courseId" element={<InstructorCourseDetailPage />} />
+      </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
