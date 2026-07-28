@@ -158,14 +158,14 @@ export default function LeaderboardPage({ currentUser, submissionHistory }: Prop
 
       {/* ── Current Student + Personal Performance ───────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-        <SectionCard title="Current Student" label="Identity">
+        <SectionCard title="Local Prototype Profile" label="Local only">
           <div className="space-y-3">
             <div>
               <div className="text-xs text-ink-faint mb-1">Anonymous Name</div>
               <div className="font-mono text-hud-accent font-semibold text-sm">{currentUser.anonymousName}</div>
             </div>
             <div>
-              <div className="text-xs text-ink-faint mb-1">User ID</div>
+              <div className="text-xs text-ink-faint mb-1">Local Browser ID</div>
               <div className="font-mono text-ink-faint text-xs">{currentUser.userId}</div>
             </div>
             <div>

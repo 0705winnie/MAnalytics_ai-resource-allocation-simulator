@@ -1,6 +1,5 @@
-// Shared types for the Phase 1 simulated-account / personal-history feature.
-// See src/lib/storage.ts for how these are persisted (localStorage only —
-// no backend, no real auth).
+// Shared types for the Phase 1 local prototype profile/history feature.
+// This is not the authenticated Student identity; see src/auth for real auth.
 
 import type { PolicyParams, SimulationResponse } from './simulation'
 

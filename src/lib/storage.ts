@@ -1,10 +1,9 @@
-// Phase 1 "simulated account" persistence — localStorage only.
+// Phase 1 local prototype profile/history persistence — localStorage only.
 //
-// There is no backend user system yet: `currentUser` is generated once per
-// browser and reused on later visits; `submissionHistory` is a personal log
-// of saved simulation runs. Both live entirely client-side. See the project
-// plan's Page 4 spec for what a real (Phase 2+) version would need
-// (accounts, a shared leaderboard across students, etc.).
+// `currentUser` is not authentication and must never be treated as the signed-in
+// Student. AuthProvider owns server-backed identity. This local identifier is
+// retained temporarily for prototype History/Leaderboard rows, while
+// `submissionHistory` remains a browser-only log of saved simulation runs.
 
 import type { PolicyParams, SimulationResponse } from '../types/simulation'
 import type { CurrentUser, Submission } from '../types/user'
