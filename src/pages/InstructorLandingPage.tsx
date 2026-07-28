@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 
 const UPCOMING_TOOLS = [
-  ['Roster management', 'Coming next'],
+  ['Roster management', 'Available from each course'],
   ['Student progress', 'Coming later'],
 ] as const
 

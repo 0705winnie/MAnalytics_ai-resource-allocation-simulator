@@ -2,10 +2,13 @@ import type {
   CreateInstructorCourseRequest,
   InstructorCourse,
   InstructorCourseListResponse,
+  RosterImportResult,
+  RosterImportSummary,
 } from './types'
 
 export type InstructorCourseApiErrorCode =
   | 'invalid_input'
+  | 'file_too_large'
   | 'unauthorized'
   | 'forbidden'
   | 'not_found'
@@ -117,6 +120,9 @@ function throwForCourseResponse(response: Response): void {
   if (response.status === 409) {
     throw new InstructorCourseApiError('conflict')
   }
+  if (response.status === 413) {
+    throw new InstructorCourseApiError('file_too_large')
+  }
   if (response.status === 400 || response.status === 422) {
     throw new InstructorCourseApiError('invalid_input')
   }
@@ -181,6 +187,248 @@ export async function createInstructorCourse(
     })
     throwForCourseResponse(response)
     return parseInstructorCourse(await safeJson(response))
+  } catch (error) {
+    return unavailableUnlessAborted(error)
+  }
+}
+
+export const MAX_ROSTER_FILE_BYTES = 1024 * 1024
+const MAX_ROSTER_ROWS = 1000
+const MAX_ROSTER_RESPONSE_BYTES = 2 * 1024 * 1024
+const ROSTER_DOWNLOAD_FILENAME = 'roster-activation-codes.csv'
+const ROSTER_HEADER = [
+  'berkeley_username',
+  'course_code',
+  'activation_code',
+  'status',
+  'message',
+] as const
+const ROSTER_STATUSES = new Set([
+  'created',
+  'already_enrolled',
+  'duplicate_input',
+  'invalid',
+  'role_conflict',
+  'user_inactive',
+])
+const ACTIVATION_CODE_PATTERN = /^[A-Z2-9]{4}(?:-[A-Z2-9]{4}){2}$/
+const FORMULA_PREFIX_PATTERN = /^[=+\-@]/
+
+function parseNonnegativeCount(response: Response, name: string): number {
+  const value = response.headers.get(name)
+  if (value === null || !/^(?:0|[1-9]\d*)$/.test(value)) {
+    throw new InstructorCourseApiError('unavailable')
+  }
+  const parsed = Number(value)
+  if (!Number.isSafeInteger(parsed) || parsed > MAX_ROSTER_ROWS) {
+    throw new InstructorCourseApiError('unavailable')
+  }
+  return parsed
+}
+
+function parseCsvRecords(text: string): string[][] {
+  const records: string[][] = []
+  let record: string[] = []
+  let field = ''
+  let inQuotes = false
+  let afterQuote = false
+
+  function finishField() {
+    record.push(field)
+    field = ''
+    afterQuote = false
+  }
+
+  function finishRecord() {
+    finishField()
+    records.push(record)
+    record = []
+  }
+
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index]
+    if (inQuotes) {
+      if (character === '"') {
+        if (text[index + 1] === '"') {
+          field += '"'
+          index += 1
+        } else {
+          inQuotes = false
+          afterQuote = true
+        }
+      } else {
+        field += character
+      }
+      continue
+    }
+
+    if (afterQuote && character !== ',' && character !== '\r' && character !== '\n') {
+      throw new InstructorCourseApiError('unavailable')
+    }
+    if (character === '"' && field.length === 0 && !afterQuote) {
+      inQuotes = true
+    } else if (character === '"') {
+      throw new InstructorCourseApiError('unavailable')
+    } else if (character === ',') {
+      finishField()
+    } else if (character === '\r' || character === '\n') {
+      if (character === '\r' && text[index + 1] === '\n') {
+        index += 1
+      }
+      finishRecord()
+    } else {
+      field += character
+    }
+  }
+
+  if (inQuotes) {
+    throw new InstructorCourseApiError('unavailable')
+  }
+  if (field || record.length > 0 || afterQuote) {
+    finishRecord()
+  }
+  return records
+}
+
+function spreadsheetSafeValue(value: string): string {
+  return FORMULA_PREFIX_PATTERN.test(value) ? `'${value}` : value
+}
+
+function validateRosterCsv(
+  text: string,
+  expectedCourseCode: string,
+  headerSummary: Omit<RosterImportSummary, 'processed' | 'duplicate_input'>,
+): RosterImportSummary {
+  const records = parseCsvRecords(text)
+  const header = records.shift()
+  if (
+    !header
+    || header.length !== ROSTER_HEADER.length
+    || header.some((value, index) => value !== ROSTER_HEADER[index])
+    || records.length < 1
+    || records.length > MAX_ROSTER_ROWS
+  ) {
+    throw new InstructorCourseApiError('unavailable')
+  }
+
+  const statusCounts = {
+    created: 0,
+    already_enrolled: 0,
+    duplicate_input: 0,
+    invalid: 0,
+    role_conflict: 0,
+    user_inactive: 0,
+  }
+  const safeCourseCode = spreadsheetSafeValue(expectedCourseCode)
+
+  for (const record of records) {
+    if (
+      record.length !== ROSTER_HEADER.length
+      || !record[0]
+      || record[1] !== safeCourseCode
+      || !ROSTER_STATUSES.has(record[3])
+      || !record[4]
+      || [record[0], record[1], record[3], record[4]]
+        .some((value) => FORMULA_PREFIX_PATTERN.test(value))
+    ) {
+      throw new InstructorCourseApiError('unavailable')
+    }
+
+    const status = record[3] as keyof typeof statusCounts
+    statusCounts[status] += 1
+    if (
+      (status === 'created' && !ACTIVATION_CODE_PATTERN.test(record[2]))
+      || (status !== 'created' && record[2] !== '')
+    ) {
+      throw new InstructorCourseApiError('unavailable')
+    }
+  }
+
+  const conflicts = statusCounts.role_conflict + statusCounts.user_inactive
+  if (
+    headerSummary.created !== statusCounts.created
+    || headerSummary.already_enrolled !== statusCounts.already_enrolled
+    || headerSummary.invalid !== statusCounts.invalid
+    || headerSummary.conflicts !== conflicts
+  ) {
+    throw new InstructorCourseApiError('unavailable')
+  }
+
+  return {
+    processed: records.length,
+    created: statusCounts.created,
+    already_enrolled: statusCounts.already_enrolled,
+    duplicate_input: statusCounts.duplicate_input,
+    invalid: statusCounts.invalid,
+    conflicts,
+  }
+}
+
+async function parseRosterImportResponse(
+  response: Response,
+  expectedCourseCode: string,
+): Promise<RosterImportResult> {
+  const contentType = response.headers.get('content-type')?.toLowerCase() ?? ''
+  const disposition = response.headers.get('content-disposition')
+  const cacheControl = response.headers.get('cache-control')?.toLowerCase() ?? ''
+  const pragma = response.headers.get('pragma')?.toLowerCase() ?? ''
+  if (
+    !contentType.startsWith('text/csv')
+    || disposition !== `attachment; filename="${ROSTER_DOWNLOAD_FILENAME}"`
+    || !cacheControl.includes('no-store')
+    || pragma !== 'no-cache'
+  ) {
+    throw new InstructorCourseApiError('unavailable')
+  }
+
+  const headerSummary = {
+    created: parseNonnegativeCount(response, 'x-roster-created'),
+    already_enrolled: parseNonnegativeCount(
+      response,
+      'x-roster-already-enrolled',
+    ),
+    invalid: parseNonnegativeCount(response, 'x-roster-invalid'),
+    conflicts: parseNonnegativeCount(response, 'x-roster-conflicts'),
+  }
+  const bytes = await response.arrayBuffer()
+  if (bytes.byteLength === 0 || bytes.byteLength > MAX_ROSTER_RESPONSE_BYTES) {
+    throw new InstructorCourseApiError('unavailable')
+  }
+
+  let text: string
+  try {
+    text = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+  } catch {
+    throw new InstructorCourseApiError('unavailable')
+  }
+  const summary = validateRosterCsv(text, expectedCourseCode, headerSummary)
+  return {
+    csv: new Blob([bytes], { type: 'text/csv;charset=utf-8' }),
+    summary,
+  }
+}
+
+export async function importInstructorRoster(
+  course: InstructorCourse,
+  file: File,
+): Promise<RosterImportResult> {
+  if (file.size > MAX_ROSTER_FILE_BYTES) {
+    throw new InstructorCourseApiError('file_too_large')
+  }
+
+  const body = new FormData()
+  body.append('file', file)
+  try {
+    const response = await fetch(
+      `/api/instructor/courses/${encodeURIComponent(course.id)}/roster/import`,
+      {
+        method: 'POST',
+        credentials: 'include',
+        body,
+      },
+    )
+    throwForCourseResponse(response)
+    return await parseRosterImportResponse(response, course.course_code)
   } catch (error) {
     return unavailableUnlessAborted(error)
   }

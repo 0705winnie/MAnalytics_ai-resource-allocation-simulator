@@ -20,3 +20,17 @@ export interface CreateInstructorCourseRequest {
   course_name: string
   semester: string
 }
+
+export interface RosterImportSummary {
+  processed: number
+  created: number
+  already_enrolled: number
+  duplicate_input: number
+  invalid: number
+  conflicts: number
+}
+
+export interface RosterImportResult {
+  csv: Blob
+  summary: RosterImportSummary
+}

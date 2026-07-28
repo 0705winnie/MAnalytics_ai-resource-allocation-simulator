@@ -122,12 +122,21 @@ export default function InstructorCourseDetailPage() {
             </p>
             <h2 className="mt-2 text-xl font-semibold">Roster management</h2>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-ink-dim">
-              Uploading students and downloading one-time activation codes will
-              be added in the next Instructor UI phase.
+              Upload a roster CSV and securely download the one-time activation
+              codes returned for newly created enrollments.
             </p>
-            <span className="mt-5 inline-flex rounded-md border border-line bg-well px-4 py-2 text-sm font-semibold text-ink-faint">
-              Coming next
-            </span>
+            {course.is_active ? (
+              <Link
+                to={`/instructor/courses/${course.id}/roster`}
+                className="mt-5 inline-flex rounded-md bg-hud-accent px-4 py-2.5 text-sm font-semibold text-white hover:bg-hud-accent-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-hud-accent/40 focus-visible:ring-offset-2"
+              >
+                Manage Roster
+              </Link>
+            ) : (
+              <span className="mt-5 inline-flex rounded-md border border-line bg-well px-4 py-2 text-sm font-semibold text-ink-faint">
+                Course is inactive
+              </span>
+            )}
           </section>
         </>
       )}

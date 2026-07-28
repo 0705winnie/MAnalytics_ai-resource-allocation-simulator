@@ -6,6 +6,7 @@ import InstructorCoursesPage from '../pages/InstructorCoursesPage'
 import InstructorLandingPage from '../pages/InstructorLandingPage'
 import InstructorLayout from '../pages/InstructorLayout'
 import InstructorLoginPage from '../pages/InstructorLoginPage'
+import InstructorRosterImportPage from '../pages/InstructorRosterImportPage'
 import StudentActivationPage from '../pages/StudentActivationPage'
 import StudentLoginPage from '../pages/StudentLoginPage'
 import { useAuth } from './AuthProvider'
@@ -115,6 +116,10 @@ export default function AppRoutes() {
         <Route path="courses" element={<InstructorCoursesPage />} />
         <Route path="courses/new" element={<InstructorCourseCreatePage />} />
         <Route path="courses/:courseId" element={<InstructorCourseDetailPage />} />
+        <Route
+          path="courses/:courseId/roster"
+          element={<InstructorRosterImportPage />}
+        />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
