@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, type ReactNode } from 'react'
+﻿import { useState, useRef, useEffect, type ReactNode } from 'react'
 import { postChat, type ChatMessage } from '../lib/api'
 import type { MonthDetailResult, PolicyParams } from '../types/simulation'
 import type { Page } from '../components/NavBar'
@@ -6,17 +6,17 @@ import type { Page } from '../components/NavBar'
 const MONTH_LABELS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 const TOTAL_MONTHS = 12
 
-// ── Constants ────────────────────────────────────────────────────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬ Constants Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 export const POLICY_TEMPLATE = `def admission_policy(request, state, history, params):
     """
-    request : dict — {"type": str, "required_units": int, "arrival_time": float}
-    state   : dict — {"remaining_capacity": {1: int, 2: int, 3: int}}
-    history : dict — historical data + previous monthly results
-    params  : dict — your tunable parameters (can be empty {})
-    returns : int  — cluster id (1, 2, or 3) to admit, or 0 to reject
+    request : dict - {"type": str, "required_units": int, "arrival_time": float}
+    state   : dict - {"remaining_capacity": {cluster_id: remaining_units}}
+    history : dict - historical data + previous monthly results
+    params  : dict - your tunable parameters (can be empty {})
+    returns : int  - cluster id (1 through 10) to admit, or 0 to reject
     """
-    # Example: greedy first-fit — admit to the first cluster with enough room.
+    # Example: greedy first-fit - admit to the first cluster with enough room.
     # Replace this with your own logic.
     for cluster_id, remaining in state["remaining_capacity"].items():
         if remaining >= request["required_units"]:
@@ -25,32 +25,32 @@ export const POLICY_TEMPLATE = `def admission_policy(request, state, history, pa
 
 const INTERFACE_SPEC = `def admission_policy(request, state, history, params):
     # Called once per arriving request. Must return an int.
-    # return 1 | 2 | 3   →  admit to that cluster
-    # return 0            →  reject the request
+    # return 1..10  -> admit to that cluster
+    # return 0      -> reject the request
     ...`
 
 const INPUT_FIELDS = [
   { key: 'request["type"]',            val: '"VIP" | "Standard" | "Economy"' },
-  { key: 'request["required_units"]',  val: 'int — units of capacity needed' },
-  { key: 'request["arrival_time"]',    val: 'float — arrival time within month' },
-  { key: 'state["remaining_capacity"]', val: '{1: int, 2: int, 3: int} — free units per cluster' },
+  { key: 'request["required_units"]',  val: 'int - units of capacity needed' },
+  { key: 'request["arrival_time"]',    val: 'float - arrival time within month' },
+  { key: 'state["remaining_capacity"]', val: '{cluster_id: remaining_units} - free units per cluster' },
 ]
 
 const SUGGESTED_PROMPTS = [
   'How should I handle VIP vs. Economy requests differently?',
   'What is a good threshold for rejecting Economy jobs?',
-  'My policy rejects too many VIPs — how do I fix it?',
+  'My policy rejects too many VIPs - how do I fix it?',
   'Suggest a type-priority routing rule in pseudocode.',
 ]
 
 const CHECKLIST = [
-  { done: true,  text: 'Always return 0 if no cluster has enough capacity — never return an infeasible cluster id.' },
-  { done: false, text: 'Prioritise VIP over Economy when capacity is scarce — they earn 3× more per unit.' },
-  { done: false, text: 'Try a capacity guard: reject Economy requests if every cluster drops below ~30 free units.' },
+  { done: true,  text: 'Always return 0 if no cluster has enough capacity - never return an infeasible cluster id.' },
+  { done: false, text: 'Prioritise VIP over Economy when capacity is scarce - they earn more per completed unit.' },
+  { done: false, text: 'Try a capacity guard: reject Economy requests when feasible clusters would be left with very little spare capacity.' },
   { done: false, text: 'Route to the least-loaded cluster rather than always Cluster 1 to avoid load imbalance.' },
 ]
 
-// ── Sub-components ───────────────────────────────────────────────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬ Sub-components Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 function SectionCard({
   title,
@@ -87,7 +87,7 @@ function ValidationBadge({ ok, label }: { ok: boolean; label: string }) {
           : 'border-amber-300 bg-amber-50 text-amber-700'
       }`}
     >
-      {ok ? '✓' : '!'}  {label}
+      {ok ? 'check' : '!'}  {label}
     </span>
   )
 }
@@ -183,7 +183,7 @@ function ParamsEditor({
   return (
     <div>
       <p className="text-ink-faint text-xs leading-relaxed mb-3">
-        These key/value pairs are passed into your policy as the <code className="text-hud-accent">params</code> dict —
+        These key/value pairs are passed into your policy as the <code className="text-hud-accent">params</code> dict -
         use them for thresholds or multipliers you want to tune without editing code. They carry over
         into <strong className="text-ink-dim">03 Simulation</strong> automatically.
       </p>
@@ -206,12 +206,12 @@ function ParamsEditor({
               className="shrink-0 text-ink-faintest hover:text-red-600 text-xs px-1.5 transition-colors"
               aria-label={`Remove ${key}`}
             >
-              ✕
+              x
             </button>
           </div>
         ))}
         {entries.length === 0 && (
-          <p className="text-ink-faintest text-xs italic">No parameters yet — add one below.</p>
+          <p className="text-ink-faintest text-xs italic">No parameters yet - add one below.</p>
         )}
       </div>
       <button
@@ -224,7 +224,7 @@ function ParamsEditor({
   )
 }
 
-// ── Page ─────────────────────────────────────────────────────────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬ Page Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 interface Props {
   policyCode: string
@@ -299,14 +299,14 @@ export default function PolicyAIPage({
 
   function shareCode() {
     setInput(
-      `Here is my current policy code — can you review it and suggest improvements?\n\n\`\`\`python\n${policyCode}\n\`\`\``,
+      `Here is my current policy code - can you review it and suggest improvements?\n\n\`\`\`python\n${policyCode}\n\`\`\``, 
     )
   }
 
   return (
     <div className="space-y-6">
 
-      {/* ── Hero ───────────────────────────────────────────────────────── */}
+      {/* Ã¢â€â‚¬Ã¢â€â‚¬ Hero Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */}
       <div className="rounded-xl border border-line bg-gradient-to-br from-white via-white to-hud-positive/5 p-7 shadow-card">
         <div className="flex items-center gap-2 mb-4">
           <span className="text-xs font-mono px-2.5 py-1 rounded-full border border-line-strong text-ink-faint tracking-widest uppercase">
@@ -317,7 +317,7 @@ export default function PolicyAIPage({
           Design Your Admission Policy
         </h1>
         <p className="text-ink-dim text-sm leading-relaxed max-w-3xl">
-          Write a Python function that decides — for every arriving request — whether to
+          Write a Python function that decides - for every arriving request - whether to
           admit it to a cluster or reject it. The AI assistant on the right is here to
           help you think through your logic, suggest ideas, and debug your code.
           When you are satisfied, head to{' '}
@@ -332,7 +332,7 @@ export default function PolicyAIPage({
             {nextMonth !== null ? (
               <span className="text-ink-dim text-xs">
                 Next up: <strong className="text-hud-accent">Month {nextMonth}</strong>{' '}
-                ({MONTH_LABELS[nextMonth - 1]}) — {completedMonths.length} of {TOTAL_MONTHS} months done.
+                ({MONTH_LABELS[nextMonth - 1]}) - {completedMonths.length} of {TOTAL_MONTHS} months done.
               </span>
             ) : (
               <span className="text-ink-dim text-xs">
@@ -345,7 +345,7 @@ export default function PolicyAIPage({
           {latestMonth && (
             <div className="flex flex-wrap items-center gap-2 border-t border-line pt-2.5">
               <span className="text-ink-faint text-xs shrink-0">
-                Latest — Month {latestMonth.month} ({MONTH_LABELS[latestMonth.month - 1]}):
+                Latest - Month {latestMonth.month} ({MONTH_LABELS[latestMonth.month - 1]}):
               </span>
               <span className="text-xs font-mono px-2 py-0.5 rounded bg-chip text-ink-dim">
                 ${latestMonth.total_revenue.toLocaleString()} revenue
@@ -364,25 +364,25 @@ export default function PolicyAIPage({
           {completedMonths.length > 0 && nextMonth !== null && (
             <p className="text-ink-faint text-xs border-t border-line pt-2.5">
               Edits below only take effect on <strong className="text-ink-dim">Month {nextMonth}</strong>{' '}
-              and later —{' '}
-              {completedMonths.length === 1 ? 'Month 1 is' : `Months 1–${completedMonths.length} are`}{' '}
+              and later -{' '}
+              {completedMonths.length === 1 ? 'Month 1 is' : `Months 1-${completedMonths.length} are`}{' '}
               already locked in and won't be recalculated.
             </p>
           )}
         </div>
       </div>
 
-      {/* ── Two-column layout ──────────────────────────────────────────── */}
+      {/* Ã¢â€â‚¬Ã¢â€â‚¬ Two-column layout Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */}
       <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-6 items-start">
 
-        {/* ── Left: Policy editor ──────────────────────────────────────── */}
+        {/* Ã¢â€â‚¬Ã¢â€â‚¬ Left: Policy editor Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */}
         <div className="space-y-5">
 
           {/* Interface specification */}
           <SectionCard title="Policy Interface" label="Contract">
             <p className="text-ink-faint text-xs leading-relaxed mb-4">
               Your function is called once per arriving request. It must return an integer
-              cluster id (1, 2, or 3) to admit the request, or 0 to reject it. If you
+              cluster id (1 through 10) to admit the request, or 0 to reject it. If you
               return an infeasible cluster id (not enough capacity), the simulator
               auto-rejects and logs a warning.
             </p>
@@ -413,7 +413,7 @@ export default function PolicyAIPage({
                 onClick={shareCode}
                 className="shrink-0 text-xs text-ink-faint hover:text-hud-accent border border-line hover:border-hud-accent/40 rounded px-2.5 py-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-hud-accent/60 transition-colors ml-3"
               >
-                Ask AI to review ↗
+                Ask AI to review {'->'}
               </button>
             </div>
             <textarea
@@ -428,7 +428,7 @@ export default function PolicyAIPage({
               <ValidationBadge ok={hasReturn}    label="return statement present" />
               {isValid && (
                 <span className="text-xs text-hud-positive/60 ml-auto">
-                  Looks good — ready to simulate
+                  Looks good - ready to simulate
                 </span>
               )}
             </div>
@@ -449,7 +449,7 @@ export default function PolicyAIPage({
                       done ? 'text-hud-positive' : 'text-ink-faintest'
                     }`}
                   >
-                    {done ? '✓' : '○'}
+                    {done ? 'check' : 'o'}
                   </span>
                   <span className={done ? 'text-hud-positive/70' : 'text-ink-faint'}>
                     {text}
@@ -461,7 +461,7 @@ export default function PolicyAIPage({
 
         </div>
 
-        {/* ── Right: AI assistant (sticky) ─────────────────────────────── */}
+        {/* Ã¢â€â‚¬Ã¢â€â‚¬ Right: AI assistant (sticky) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */}
         <div
           className="sticky top-6 rounded-lg border border-line bg-white shadow-card flex flex-col"
           style={{ height: 'calc(100vh - 6rem)', minHeight: '540px' }}
@@ -567,7 +567,7 @@ export default function PolicyAIPage({
               <textarea
                 rows={2}
                 className="flex-1 rounded border border-line-strong bg-well px-3 py-2 text-sm text-ink-dim resize-none focus:outline-none focus:border-hud-accent/50 transition-colors leading-relaxed placeholder:text-ink-faintest"
-                placeholder="Ask a question… (Enter to send, Shift+Enter for newline)"
+                placeholder="Ask a question... (Enter to send, Shift+Enter for newline)"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
@@ -598,7 +598,7 @@ export default function PolicyAIPage({
 
       </div>
 
-      {/* ── CTA ────────────────────────────────────────────────────────── */}
+      {/* Ã¢â€â‚¬Ã¢â€â‚¬ CTA Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */}
       <button
         type="button"
         onClick={() => onNavigate(3)}
@@ -616,12 +616,12 @@ export default function PolicyAIPage({
           <p className="text-ink-faint text-sm max-w-lg">
             Head to <strong className="text-ink-dim">03 Simulation</strong> to run the
             next month and see how much revenue it earns. Come back here anytime between
-            months to refine your code — completed months stay locked.
+            months to refine your code - completed months stay locked.
           </p>
         </div>
         <div className="shrink-0 flex items-center gap-2 rounded-lg border border-hud-gold bg-hud-gold px-4 py-2.5 text-ink text-xs font-semibold whitespace-nowrap">
           {nextMonth !== null ? `Run Month ${nextMonth}` : 'Review Results'}
-          <span className="text-lg font-thin leading-none">→</span>
+          <span className="text-lg font-thin leading-none">{'->'}</span>
         </div>
       </button>
 

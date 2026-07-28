@@ -2,23 +2,28 @@
 Generate a synthetic historical request-level dataset for the resource allocation case.
 
 This script creates "last year's" operating data for students to inspect.
-The hidden parameters come from hidden_environment.py.
+The hidden parameters come from backend/app/services/hidden_environment.py.
 """
 
 from pathlib import Path
+import sys
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(REPO_ROOT))
 
 import numpy as np
 import pandas as pd
 
-from hidden_environment import (
+from backend.app.services.hidden_environment import (
     REQUEST_TYPES,
     PRICE_PER_UNIT,
-    N_CLUSTERS,
+    CLUSTER_CAPACITY,
     SIMULATION_MONTHS,
     DAYS_PER_MONTH,
     HOURS_PER_DAY,
     BASE_MONTHLY_ARRIVALS,
     MONTHLY_MULTIPLIER,
+    TYPE_MONTHLY_MULTIPLIER,
     REQUIRED_UNITS_DISTRIBUTION,
     MEAN_SERVICE_DURATION,
     SERVICE_DURATION_GAMMA_SHAPE,
@@ -48,6 +53,22 @@ def sample_service_duration(request_type: str, rng: np.random.Generator) -> floa
     return float(rng.gamma(shape=shape, scale=scale))
 
 
+def sample_assigned_cluster(required_units: int, rng: np.random.Generator) -> int:
+    """Sample a historical cluster that could feasibly fit the request."""
+    feasible_clusters = [
+        cluster_id
+        for cluster_id, capacity in CLUSTER_CAPACITY.items()
+        if capacity >= required_units
+    ]
+
+    if not feasible_clusters:
+        raise ValueError(
+            f"No cluster can fit a request requiring {required_units} units."
+        )
+
+    return int(rng.choice(feasible_clusters))
+
+
 def generate_historical_requests(seed: int = DEFAULT_RANDOM_SEED) -> pd.DataFrame:
     """Generate one year of synthetic historical request data."""
     rng = np.random.default_rng(seed)
@@ -60,6 +81,7 @@ def generate_historical_requests(seed: int = DEFAULT_RANDOM_SEED) -> pd.DataFram
             expected_arrivals = (
                 BASE_MONTHLY_ARRIVALS[request_type]
                 * MONTHLY_MULTIPLIER[month]
+                * TYPE_MONTHLY_MULTIPLIER[request_type][month]
             )
 
             num_arrivals = rng.poisson(expected_arrivals)
@@ -94,7 +116,10 @@ def generate_historical_requests(seed: int = DEFAULT_RANDOM_SEED) -> pd.DataFram
                     "type": request_type,
                     "required_units": required_units,
                     "duration": round(duration, 3),
-                    "assigned_cluster": int(rng.integers(1, N_CLUSTERS + 1)),
+                    "assigned_cluster": sample_assigned_cluster(
+                        required_units,
+                        rng,
+                    ),
                     "completed": completed,
                     "unit_price": unit_price,
                     "revenue": revenue,

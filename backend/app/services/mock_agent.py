@@ -119,8 +119,10 @@ class MockResourceAllocationAgent:
                 "Always reject is a sanity check. First-fit admits to the first "
                 "feasible cluster. Least-loaded sends the request to the cluster with "
                 "the most remaining capacity. Best-fit sends it to the feasible cluster "
-                "that leaves the least unused capacity. A type-priority rule can reserve "
-                "scarce capacity for high-value requests."
+                "that leaves the least unused capacity. VIP-only admits VIP requests "
+                "and rejects standard/economy requests; it is useful diagnostically, "
+                "but may leave too much capacity unused. A VIP-priority or type-priority "
+                "rule can reserve scarce capacity for high-value requests."
             ),
             follow_up_questions=[
                 "Which benchmark should your policy try to beat first?",

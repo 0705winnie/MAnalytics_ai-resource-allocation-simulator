@@ -2,8 +2,8 @@
 Discrete-event simulation engine for Page 3.
 
 Generates a year of synthetic request arrivals using the same distributions
-as the historical dataset shown on Page 1 (see src/data/hidden_environment.py
-for the canonical parameter definitions this mirrors), then replays them
+as the historical dataset shown on Page 1 (see backend/app/services/hidden_environment.py
+for the canonical parameter definitions), then replays them
 month by month against the student's `admission_policy`, tracking real
 per-cluster capacity and departure events so admit/reject decisions actually
 affect what capacity is available later.

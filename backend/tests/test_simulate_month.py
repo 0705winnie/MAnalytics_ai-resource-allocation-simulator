@@ -138,7 +138,7 @@ def test_remaining_capacity_is_well_formed_and_bounded():
 
     assert set(remaining.keys()) == set(range(1, N_CLUSTERS + 1))
     for cluster_id, free_units in remaining.items():
-        assert 0 <= free_units <= CLUSTER_CAPACITY
+        assert 0 <= free_units <= CLUSTER_CAPACITY[cluster_id]
 
 
 # ---------------------------------------------------------------------------

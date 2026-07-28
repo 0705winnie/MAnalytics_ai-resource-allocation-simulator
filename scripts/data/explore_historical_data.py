@@ -6,8 +6,15 @@ prints basic validation summaries, and saves exploratory plots for
 dashboard/report use.
 """
 
+import os
 from pathlib import Path
 
+os.environ.setdefault("MPLBACKEND", "Agg")
+os.environ.setdefault("MPLCONFIGDIR", str(Path("outputs/.matplotlib-cache")))
+
+import matplotlib
+
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
 
@@ -21,7 +28,7 @@ def load_data() -> pd.DataFrame:
     if not DATA_PATH.exists():
         raise FileNotFoundError(
             f"Could not find {DATA_PATH}. "
-            "Run `python src/data/generate_historical_data.py` first."
+            "Run `python scripts/data/generate_historical_data.py` first."
         )
 
     return pd.read_csv(DATA_PATH)

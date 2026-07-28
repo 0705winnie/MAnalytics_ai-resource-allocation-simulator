@@ -82,7 +82,7 @@ def call_policy(
 
     if not isinstance(result, int) or isinstance(result, bool):
         raise PolicyRuntimeError(
-            f"Policy must return an int (0-3), got {type(result).__name__}."
+            f"Policy must return an int cluster id or 0 to reject, got {type(result).__name__}."
         )
 
     return result

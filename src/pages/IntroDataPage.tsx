@@ -24,10 +24,10 @@ const TOOLTIP = {
 }
 
 const SYSTEM_PARAMS = [
-  { label: 'Server Clusters',    value: '3'           },
-  { label: 'Capacity / Cluster', value: '100 units'   },
-  { label: 'VIP Price',          value: '$12 / unit'  },
-  { label: 'Standard Price',     value: '$7 / unit'   },
+  { label: 'Server Clusters',    value: '10'          },
+  { label: 'Cluster Capacity',   value: '12-20 units' },
+  { label: 'VIP Price',          value: '$14 / unit'  },
+  { label: 'Standard Price',     value: '$8 / unit'   },
   { label: 'Economy Price',      value: '$4 / unit'   },
   { label: 'Simulation Horizon', value: '12 months'   },
 ]
@@ -45,14 +45,14 @@ const KEY_INSIGHTS = [
     tagClass:    'text-hud-positive',
     tag:   'Revenue',
     title: 'Standard dominates volume; VIP earns the most per unit',
-    body:  'VIP averages $125 per job — 3× Standard — yet is only ~14% of arrivals. Prioritising VIP has high upside.',
+    body:  'VIP jobs earn the highest unit price, while Standard jobs dominate request volume. Prioritising valuable capacity use has high upside.',
   },
   {
     borderClass: 'border-l-amber-500',
     tagClass:    'text-amber-700',
     tag:   'Duration',
-    title: 'Economy jobs hold capacity 2× longer',
-    body:  'Economy averages ~9 h vs. ~4 h for VIP. Admitting a cheap long job now can block several high-value arrivals.',
+    title: 'Economy jobs hold capacity longer',
+    body:  'Economy requests tend to last longer than VIP requests. Admitting a cheap long job now can block several high-value arrivals.',
   },
 ]
 
@@ -102,6 +102,16 @@ interface Props {
 }
 
 export default function IntroDataPage({ onNavigate }: Props) {
+  const vipType = byType.find((t) => t.type === 'VIP')
+  const standardType = byType.find((t) => t.type === 'standard')
+  const economyType = byType.find((t) => t.type === 'economy')
+  const vipAvgRevenue = vipType ? Math.round(vipType.avg_revenue) : 0
+  const standardAvgRevenue = standardType ? Math.round(standardType.avg_revenue) : 0
+  const vipDuration = vipType ? vipType.avg_duration.toFixed(1) : '0.0'
+  const economyDuration = economyType ? economyType.avg_duration.toFixed(1) : '0.0'
+  const vipCompletion = vipType ? (vipType.completion_rate * 100).toFixed(1) : '0.0'
+  const economyCompletion = economyType ? (economyType.completion_rate * 100).toFixed(1) : '0.0'
+
   const durationData = byType.map((t) => {
     const label = t.type === 'VIP' ? 'VIP'
       : t.type.charAt(0).toUpperCase() + t.type.slice(1)
@@ -141,8 +151,8 @@ export default function IntroDataPage({ onNavigate }: Props) {
 
         <p className="text-ink-dim leading-relaxed max-w-3xl mb-5">
           You are the operations lead of a cloud provider managing{' '}
-          <span className="text-hud-accent font-medium">3 server clusters</span>, each
-          with <span className="text-hud-accent font-medium">100 server-units</span> of
+          <span className="text-hud-accent font-medium">10 server clusters</span> with
+          heterogeneous <span className="text-hud-accent font-medium">12-20 server-units</span> of
           reusable capacity. Incoming customer requests are one of three types —{' '}
           <span className="text-hud-accent font-medium">VIP</span>,{' '}
           <span className="text-hud-positive font-medium">Standard</span>, or{' '}
@@ -209,8 +219,8 @@ export default function IntroDataPage({ onNavigate }: Props) {
       {/* ── Chart 01: Monthly Demand ────────────────────────────────────── */}
       <SectionCard title="Monthly Demand — Historical Year" label="01">
         <ChartInsight>
-          Demand is lowest in Jan–Feb (~770 requests) and peaks in Jul–Aug (~1,100+).
-          A smart policy should account for this seasonality — peak months stress capacity most.
+          Demand is lowest early in the year and peaks in the summer. A smart policy should
+          account for this seasonality because peak months stress capacity most.
         </ChartInsight>
         <ResponsiveContainer width="100%" height={240}>
           <BarChart data={byMonth} margin={{ top: 4, right: 8, left: -10, bottom: 0 }}>
@@ -244,9 +254,10 @@ export default function IntroDataPage({ onNavigate }: Props) {
       {/* ── Chart 02: Type Breakdown ─────────────────────────────────────── */}
       <SectionCard title="Request Type Breakdown by Month" label="02">
         <ChartInsight>
-          Standard jobs account for ~50–55% of arrivals; VIP only ~12–15%. Yet VIP earns
-          $125 per job on average — 3× more than Standard. <em>Volume ≠ value.</em> A good
-          policy protects VIP slots even during high-volume months.
+          Standard jobs account for the largest share of arrivals, while VIP jobs are less
+          frequent but earn about {vipAvgRevenue} per completed job on average, compared
+          with about {standardAvgRevenue} for Standard. A good policy should balance volume,
+          value, and future capacity.
         </ChartInsight>
         <ResponsiveContainer width="100%" height={240}>
           <BarChart
@@ -284,8 +295,8 @@ export default function IntroDataPage({ onNavigate }: Props) {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
         <SectionCard title="Avg Service Duration by Type" label="03">
           <ChartInsight>
-            Economy averages ~9 h vs. VIP's ~4 h. Every server-unit held by a long Economy
-            job is unavailable to the next VIP arrival.
+            Economy averages about {economyDuration} h vs. VIP's about {vipDuration} h.
+            Every server-unit held by a long Economy job is unavailable to future arrivals.
           </ChartInsight>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={durationData} margin={{ top: 4, right: 8, left: -10, bottom: 0 }}>
@@ -314,8 +325,9 @@ export default function IntroDataPage({ onNavigate }: Props) {
 
         <SectionCard title="Completion Rate by Type" label="04">
           <ChartInsight>
-            VIP completes 95% of the time; Economy only 85%. Longer jobs are more likely
-            to run past month-end — consuming capacity but earning zero revenue.
+            VIP completes about {vipCompletion}% of the time; Economy completes about{' '}
+            {economyCompletion}%. Longer jobs are more likely to run past month-end,
+            consuming capacity but earning zero revenue.
           </ChartInsight>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={completionData} margin={{ top: 4, right: 8, left: -10, bottom: 0 }}>
@@ -331,7 +343,8 @@ export default function IntroDataPage({ onNavigate }: Props) {
                 axisLine={false}
                 tickLine={false}
                 unit="%"
-                domain={[80, 100]}
+                domain={[0, 100]}
+                ticks={[0, 25, 50, 75, 100]}
               />
               <Tooltip {...TOOLTIP} />
               <Bar dataKey="Rate %" radius={[3, 3, 0, 0]}>

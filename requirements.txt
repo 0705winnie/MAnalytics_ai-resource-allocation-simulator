@@ -1,3 +1,7 @@
 # Backend deps; install from repo root: pip install -r requirements.txt
 # Or: cd backend && pip install -r requirements.txt
 -r backend/requirements.txt
+
+# Stream A data generation/exploration scripts
+pandas>=2.2.0
+matplotlib>=3.9.0

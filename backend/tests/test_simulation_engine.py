@@ -127,7 +127,7 @@ def test_unfinished_job_earns_no_completed_revenue():
     assert job["potential_revenue"] == 5 * PRICE_PER_UNIT["VIP"]
     # The unfinished job is still "active" at month end, so its 5 units stay
     # occupied in the end-of-month capacity snapshot too.
-    assert remaining_capacity[1] == CLUSTER_CAPACITY - 5
+    assert remaining_capacity[1] == CLUSTER_CAPACITY[1] - 5
 
 
 # ---------------------------------------------------------------------------
@@ -153,9 +153,11 @@ def test_repeated_runs_with_same_seed_are_reproducible():
 def test_capacity_never_exceeds_total_even_when_policy_ignores_state():
     # Four requests that together exceed a single cluster's capacity; the
     # policy blindly asks for cluster 1 regardless of what's actually free.
+    cluster_one_capacity = CLUSTER_CAPACITY[1]
+    oversized_units = cluster_one_capacity
     arrivals = [
-        {"type": "VIP", "required_units": 40, "arrival_time": float(t), "duration": 1000.0}
-        for t in range(4)
+        {"type": "VIP", "required_units": oversized_units, "arrival_time": float(t), "duration": 1000.0}
+        for t in range(2)
     ]
     warnings = []
     jobs, _avg_util, peak_util, remaining_capacity = _run_month(
@@ -165,12 +167,12 @@ def test_capacity_never_exceeds_total_even_when_policy_ignores_state():
     admitted_units_cluster_1 = sum(
         j["required_units"] for j in jobs if j["admitted"] and j["cluster"] == 1
     )
-    assert admitted_units_cluster_1 <= CLUSTER_CAPACITY
+    assert admitted_units_cluster_1 <= cluster_one_capacity
     assert peak_util[1] <= 1.0
     # Capacity can never go negative, however the policy behaves.
     assert remaining_capacity[1] >= 0
-    # At 4 x 40 = 160 units requested against 100 units of capacity, at
-    # least one request must have been auto-rejected as infeasible.
+    # Two full-cluster requests against one cluster's capacity means at least
+    # one request must have been auto-rejected as infeasible.
     assert len(warnings) > 0
 
 
@@ -214,7 +216,7 @@ def test_infeasible_capacity_choice_is_auto_rejected_with_warning():
     warnings = []
     jobs, _, _, _ = _run_month(
         1,
-        _single_arrival(required_units=CLUSTER_CAPACITY + 1),
+        _single_arrival(required_units=max(CLUSTER_CAPACITY.values()) + 1),
         always_cluster_one_policy,
         {},
         {"previous_months": []},

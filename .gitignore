@@ -220,5 +220,8 @@ __marimo__/
 # Node
 node_modules/
 
+# Local matplotlib cache used by Stream A plotting scripts
+outputs/.matplotlib-cache/
+
 # macOS
 .DS_Store

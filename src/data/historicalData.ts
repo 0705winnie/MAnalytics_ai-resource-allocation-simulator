@@ -28,78 +28,78 @@ export interface TypeSummary {
   avg_duration: number
 }
 
-// Monthly totals (12 rows) — from data/generated/summary_by_month.csv
+// Monthly totals from data/generated/summary_by_month.csv
 export const byMonth: MonthSummary[] = [
-  { month: 1,  total_requests: 780,  completed_requests: 695,  total_revenue: 33486, avg_required_units: 6.09, avg_duration: 6.66 },
-  { month: 2,  total_requests: 762,  completed_requests: 688,  total_revenue: 32548, avg_required_units: 5.95, avg_duration: 7.09 },
-  { month: 3,  total_requests: 881,  completed_requests: 797,  total_revenue: 37400, avg_required_units: 5.99, avg_duration: 6.45 },
-  { month: 4,  total_requests: 877,  completed_requests: 774,  total_revenue: 38388, avg_required_units: 6.09, avg_duration: 7.24 },
-  { month: 5,  total_requests: 965,  completed_requests: 860,  total_revenue: 40650, avg_required_units: 6.03, avg_duration: 6.78 },
-  { month: 6,  total_requests: 1078, completed_requests: 964,  total_revenue: 44580, avg_required_units: 6.01, avg_duration: 6.94 },
-  { month: 7,  total_requests: 1154, completed_requests: 1027, total_revenue: 47394, avg_required_units: 5.94, avg_duration: 6.44 },
-  { month: 8,  total_requests: 1104, completed_requests: 982,  total_revenue: 49096, avg_required_units: 6.24, avg_duration: 6.58 },
-  { month: 9,  total_requests: 953,  completed_requests: 858,  total_revenue: 40978, avg_required_units: 6.04, avg_duration: 6.83 },
-  { month: 10, total_requests: 851,  completed_requests: 764,  total_revenue: 35700, avg_required_units: 5.95, avg_duration: 6.65 },
-  { month: 11, total_requests: 988,  completed_requests: 884,  total_revenue: 41034, avg_required_units: 5.93, avg_duration: 6.93 },
-  { month: 12, total_requests: 1092, completed_requests: 972,  total_revenue: 44818, avg_required_units: 5.97, avg_duration: 6.80 },
+  { month: 1, total_requests: 804, completed_requests: 672, total_revenue: 40114, avg_required_units: 7.23, avg_duration: 13.22 },
+  { month: 2, total_requests: 803, completed_requests: 693, total_revenue: 39810, avg_required_units: 7.1, avg_duration: 14.17 },
+  { month: 3, total_requests: 879, completed_requests: 759, total_revenue: 45516, avg_required_units: 7.24, avg_duration: 12.65 },
+  { month: 4, total_requests: 973, completed_requests: 824, total_revenue: 51692, avg_required_units: 7.42, avg_duration: 13.83 },
+  { month: 5, total_requests: 961, completed_requests: 820, total_revenue: 51552, avg_required_units: 7.39, avg_duration: 13.24 },
+  { month: 6, total_requests: 1070, completed_requests: 898, total_revenue: 58814, avg_required_units: 7.48, avg_duration: 13.23 },
+  { month: 7, total_requests: 1208, completed_requests: 1040, total_revenue: 73572, avg_required_units: 7.74, avg_duration: 12.34 },
+  { month: 8, total_requests: 1172, completed_requests: 993, total_revenue: 66654, avg_required_units: 7.65, avg_duration: 12.7 },
+  { month: 9, total_requests: 983, completed_requests: 845, total_revenue: 50730, avg_required_units: 7.36, avg_duration: 13.48 },
+  { month: 10, total_requests: 894, completed_requests: 730, total_revenue: 44278, avg_required_units: 7.3, avg_duration: 13.63 },
+  { month: 11, total_requests: 1077, completed_requests: 911, total_revenue: 57856, avg_required_units: 7.47, avg_duration: 12.87 },
+  { month: 12, total_requests: 1221, completed_requests: 1025, total_revenue: 71438, avg_required_units: 7.72, avg_duration: 13.1 },
 ]
 
-// Monthly breakdown by type (36 rows) — from data/generated/summary_by_month_type.csv
+// Monthly breakdown by type from data/generated/summary_by_month_type.csv
 export const byMonthType: MonthTypeSummary[] = [
-  { month: 1,  type: 'VIP',      total_requests: 111, completed_requests: 106, total_revenue: 13752, avg_required_units: 10.77, avg_duration: 4.06 },
-  { month: 1,  type: 'economy',  total_requests: 268, completed_requests: 235, total_revenue: 3032,  avg_required_units: 3.21,  avg_duration: 8.92 },
-  { month: 1,  type: 'standard', total_requests: 401, completed_requests: 354, total_revenue: 16702, avg_required_units: 6.73,  avg_duration: 5.87 },
-  { month: 2,  type: 'VIP',      total_requests: 109, completed_requests: 106, total_revenue: 13500, avg_required_units: 10.58, avg_duration: 3.55 },
-  { month: 2,  type: 'economy',  total_requests: 265, completed_requests: 228, total_revenue: 2976,  avg_required_units: 3.31,  avg_duration: 9.50 },
-  { month: 2,  type: 'standard', total_requests: 388, completed_requests: 354, total_revenue: 16072, avg_required_units: 6.46,  avg_duration: 6.44 },
-  { month: 3,  type: 'VIP',      total_requests: 118, completed_requests: 111, total_revenue: 14436, avg_required_units: 10.88, avg_duration: 3.80 },
-  { month: 3,  type: 'economy',  total_requests: 290, completed_requests: 251, total_revenue: 3196,  avg_required_units: 3.16,  avg_duration: 8.69 },
-  { month: 3,  type: 'standard', total_requests: 473, completed_requests: 435, total_revenue: 19768, avg_required_units: 6.51,  avg_duration: 5.74 },
-  { month: 4,  type: 'VIP',      total_requests: 133, completed_requests: 127, total_revenue: 17208, avg_required_units: 11.26, avg_duration: 3.94 },
-  { month: 4,  type: 'economy',  total_requests: 317, completed_requests: 261, total_revenue: 3288,  avg_required_units: 3.19,  avg_duration: 9.67 },
-  { month: 4,  type: 'standard', total_requests: 427, completed_requests: 386, total_revenue: 17892, avg_required_units: 6.64,  avg_duration: 6.46 },
-  { month: 5,  type: 'VIP',      total_requests: 122, completed_requests: 120, total_revenue: 15636, avg_required_units: 10.88, avg_duration: 4.14 },
-  { month: 5,  type: 'economy',  total_requests: 332, completed_requests: 284, total_revenue: 3748,  avg_required_units: 3.26,  avg_duration: 8.75 },
-  { month: 5,  type: 'standard', total_requests: 511, completed_requests: 456, total_revenue: 21266, avg_required_units: 6.67,  avg_duration: 6.13 },
-  { month: 6,  type: 'VIP',      total_requests: 134, completed_requests: 126, total_revenue: 16164, avg_required_units: 10.72, avg_duration: 4.20 },
-  { month: 6,  type: 'economy',  total_requests: 366, completed_requests: 315, total_revenue: 4196,  avg_required_units: 3.34,  avg_duration: 8.85 },
-  { month: 6,  type: 'standard', total_requests: 578, completed_requests: 523, total_revenue: 24220, avg_required_units: 6.62,  avg_duration: 6.36 },
-  { month: 7,  type: 'VIP',      total_requests: 145, completed_requests: 135, total_revenue: 17688, avg_required_units: 10.89, avg_duration: 4.10 },
-  { month: 7,  type: 'economy',  total_requests: 402, completed_requests: 343, total_revenue: 4296,  avg_required_units: 3.13,  avg_duration: 8.24 },
-  { month: 7,  type: 'standard', total_requests: 607, completed_requests: 549, total_revenue: 25410, avg_required_units: 6.62,  avg_duration: 5.80 },
-  { month: 8,  type: 'VIP',      total_requests: 167, completed_requests: 156, total_revenue: 20664, avg_required_units: 11.03, avg_duration: 4.11 },
-  { month: 8,  type: 'economy',  total_requests: 347, completed_requests: 291, total_revenue: 3736,  avg_required_units: 3.25,  avg_duration: 8.79 },
-  { month: 8,  type: 'standard', total_requests: 590, completed_requests: 535, total_revenue: 24696, avg_required_units: 6.64,  avg_duration: 5.99 },
-  { month: 9,  type: 'VIP',      total_requests: 134, completed_requests: 127, total_revenue: 16764, avg_required_units: 10.96, avg_duration: 3.71 },
-  { month: 9,  type: 'economy',  total_requests: 339, completed_requests: 289, total_revenue: 3732,  avg_required_units: 3.25,  avg_duration: 9.15 },
-  { month: 9,  type: 'standard', total_requests: 480, completed_requests: 442, total_revenue: 20482, avg_required_units: 6.63,  avg_duration: 6.06 },
-  { month: 10, type: 'VIP',      total_requests: 112, completed_requests: 109, total_revenue: 14244, avg_required_units: 10.87, avg_duration: 4.32 },
-  { month: 10, type: 'economy',  total_requests: 302, completed_requests: 260, total_revenue: 3368,  avg_required_units: 3.25,  avg_duration: 8.67 },
-  { month: 10, type: 'standard', total_requests: 437, completed_requests: 395, total_revenue: 18088, avg_required_units: 6.55,  avg_duration: 5.85 },
-  { month: 11, type: 'VIP',      total_requests: 128, completed_requests: 124, total_revenue: 16116, avg_required_units: 10.84, avg_duration: 4.43 },
-  { month: 11, type: 'economy',  total_requests: 359, completed_requests: 306, total_revenue: 3876,  avg_required_units: 3.18,  avg_duration: 9.16 },
-  { month: 11, type: 'standard', total_requests: 501, completed_requests: 454, total_revenue: 21042, avg_required_units: 6.65,  avg_duration: 5.97 },
-  { month: 12, type: 'VIP',      total_requests: 131, completed_requests: 122, total_revenue: 16476, avg_required_units: 11.18, avg_duration: 4.04 },
-  { month: 12, type: 'economy',  total_requests: 382, completed_requests: 325, total_revenue: 4164,  avg_required_units: 3.26,  avg_duration: 9.18 },
-  { month: 12, type: 'standard', total_requests: 579, completed_requests: 525, total_revenue: 24178, avg_required_units: 6.57,  avg_duration: 5.85 },
+  { month: 1, type: 'VIP', total_requests: 76, completed_requests: 74, total_revenue: 14014, avg_required_units: 13.53, avg_duration: 5.24 },
+  { month: 1, type: 'economy', total_requests: 371, completed_requests: 281, total_revenue: 6028, avg_required_units: 5.29, avg_duration: 19.29 },
+  { month: 1, type: 'standard', total_requests: 357, completed_requests: 317, total_revenue: 20072, avg_required_units: 7.92, avg_duration: 8.61 },
+  { month: 2, type: 'VIP', total_requests: 73, completed_requests: 68, total_revenue: 12950, avg_required_units: 13.47, avg_duration: 5.31 },
+  { month: 2, type: 'economy', total_requests: 347, completed_requests: 277, total_revenue: 5796, avg_required_units: 5.25, avg_duration: 21.11 },
+  { month: 2, type: 'standard', total_requests: 383, completed_requests: 348, total_revenue: 21064, avg_required_units: 7.56, avg_duration: 9.57 },
+  { month: 3, type: 'VIP', total_requests: 78, completed_requests: 75, total_revenue: 14616, avg_required_units: 13.82, avg_duration: 5.46 },
+  { month: 3, type: 'economy', total_requests: 355, completed_requests: 277, total_revenue: 5964, avg_required_units: 5.26, avg_duration: 19.08 },
+  { month: 3, type: 'standard', total_requests: 446, completed_requests: 407, total_revenue: 24936, avg_required_units: 7.65, avg_duration: 8.78 },
+  { month: 4, type: 'VIP', total_requests: 110, completed_requests: 105, total_revenue: 19908, avg_required_units: 13.49, avg_duration: 5.5 },
+  { month: 4, type: 'economy', total_requests: 403, completed_requests: 316, total_revenue: 6720, avg_required_units: 5.36, avg_duration: 21.18 },
+  { month: 4, type: 'standard', total_requests: 460, completed_requests: 403, total_revenue: 25064, avg_required_units: 7.78, avg_duration: 9.38 },
+  { month: 5, type: 'VIP', total_requests: 112, completed_requests: 108, total_revenue: 20748, avg_required_units: 13.71, avg_duration: 5.6 },
+  { month: 5, type: 'economy', total_requests: 404, completed_requests: 321, total_revenue: 6788, avg_required_units: 5.28, avg_duration: 20.21 },
+  { month: 5, type: 'standard', total_requests: 445, completed_requests: 391, total_revenue: 24016, avg_required_units: 7.7, avg_duration: 8.83 },
+  { month: 6, type: 'VIP', total_requests: 126, completed_requests: 125, total_revenue: 23758, avg_required_units: 13.59, avg_duration: 5.4 },
+  { month: 6, type: 'economy', total_requests: 435, completed_requests: 316, total_revenue: 6888, avg_required_units: 5.42, avg_duration: 19.64 },
+  { month: 6, type: 'standard', total_requests: 509, completed_requests: 457, total_revenue: 28168, avg_required_units: 7.73, avg_duration: 9.69 },
+  { month: 7, type: 'VIP', total_requests: 188, completed_requests: 179, total_revenue: 33628, avg_required_units: 13.44, avg_duration: 5.92 },
+  { month: 7, type: 'economy', total_requests: 420, completed_requests: 324, total_revenue: 6824, avg_required_units: 5.23, avg_duration: 20.01 },
+  { month: 7, type: 'standard', total_requests: 600, completed_requests: 537, total_revenue: 33120, avg_required_units: 7.71, avg_duration: 8.99 },
+  { month: 8, type: 'VIP', total_requests: 146, completed_requests: 143, total_revenue: 27818, avg_required_units: 13.94, avg_duration: 4.63 },
+  { month: 8, type: 'economy', total_requests: 466, completed_requests: 355, total_revenue: 7580, avg_required_units: 5.36, avg_duration: 19.76 },
+  { month: 8, type: 'standard', total_requests: 560, completed_requests: 495, total_revenue: 31256, avg_required_units: 7.91, avg_duration: 8.92 },
+  { month: 9, type: 'VIP', total_requests: 95, completed_requests: 89, total_revenue: 17290, avg_required_units: 13.92, avg_duration: 5.16 },
+  { month: 9, type: 'economy', total_requests: 413, completed_requests: 332, total_revenue: 6976, avg_required_units: 5.31, avg_duration: 20.26 },
+  { month: 9, type: 'standard', total_requests: 475, completed_requests: 424, total_revenue: 26464, avg_required_units: 7.82, avg_duration: 9.25 },
+  { month: 10, type: 'VIP', total_requests: 80, completed_requests: 76, total_revenue: 15414, avg_required_units: 14.55, avg_duration: 4.83 },
+  { month: 10, type: 'economy', total_requests: 391, completed_requests: 290, total_revenue: 6056, avg_required_units: 5.19, avg_duration: 20.31 },
+  { month: 10, type: 'standard', total_requests: 423, completed_requests: 364, total_revenue: 22808, avg_required_units: 7.87, avg_duration: 9.12 },
+  { month: 11, type: 'VIP', total_requests: 110, completed_requests: 108, total_revenue: 20468, avg_required_units: 13.51, avg_duration: 4.46 },
+  { month: 11, type: 'economy', total_requests: 422, completed_requests: 313, total_revenue: 6908, avg_required_units: 5.47, avg_duration: 20.14 },
+  { month: 11, type: 'standard', total_requests: 545, completed_requests: 490, total_revenue: 30480, avg_required_units: 7.79, avg_duration: 8.94 },
+  { month: 12, type: 'VIP', total_requests: 161, completed_requests: 155, total_revenue: 30422, avg_required_units: 14.07, avg_duration: 5.18 },
+  { month: 12, type: 'economy', total_requests: 468, completed_requests: 342, total_revenue: 7240, avg_required_units: 5.19, avg_duration: 20.59 },
+  { month: 12, type: 'standard', total_requests: 592, completed_requests: 528, total_revenue: 33776, avg_required_units: 7.98, avg_duration: 9.33 },
 ]
 
-// Per-type totals (3 rows) — from data/generated/summary_by_type.csv
+// Per-type totals from data/generated/summary_by_type.csv
 export const byType: TypeSummary[] = [
-  { type: 'VIP',      total_requests: 1544, completed_requests: 1469, completion_rate: 0.951, total_revenue: 192648, avg_revenue: 124.77, avg_required_units: 10.92, avg_duration: 4.04 },
-  { type: 'standard', total_requests: 5972, completed_requests: 5408, completion_rate: 0.906, total_revenue: 249816, avg_revenue:  41.83, avg_required_units:  6.61, avg_duration: 6.03 },
-  { type: 'economy',  total_requests: 3969, completed_requests: 3388, completion_rate: 0.854, total_revenue:  43608, avg_revenue:  10.99, avg_required_units:  3.23, avg_duration: 8.95 },
+  { type: 'VIP', total_requests: 1355, completed_requests: 1305, completion_rate: 0.963, total_revenue: 251034, avg_revenue: 185.26, avg_required_units: 13.74, avg_duration: 5.25 },
+  { type: 'economy', total_requests: 4895, completed_requests: 3744, completion_rate: 0.765, total_revenue: 79768, avg_revenue: 16.3, avg_required_units: 5.3, avg_duration: 20.13 },
+  { type: 'standard', total_requests: 5795, completed_requests: 5161, completion_rate: 0.891, total_revenue: 321224, avg_revenue: 55.43, avg_required_units: 7.79, avg_duration: 9.12 },
 ]
 
-// Pre-pivoted for Recharts grouped bar chart — one row per month, columns: VIP / Standard / Economy
+// Pre-pivoted for Recharts grouped bar chart: one row per month, columns by request type
 export const monthlyTypeBreakdown = byMonth.map((m) => {
   const rows = byMonthType.filter((r) => r.month === m.month)
   const get = (t: MonthTypeSummary['type']) =>
     rows.find((r) => r.type === t)?.total_requests ?? 0
   return {
-    month:    m.month,
-    VIP:      get('VIP'),
+    month: m.month,
+    VIP: get('VIP'),
     Standard: get('standard'),
-    Economy:  get('economy'),
+    Economy: get('economy'),
   }
 })
