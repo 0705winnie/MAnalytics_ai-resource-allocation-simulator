@@ -225,3 +225,5 @@ outputs/.matplotlib-cache/
 
 # macOS
 .DS_Store
+
+.vite/
