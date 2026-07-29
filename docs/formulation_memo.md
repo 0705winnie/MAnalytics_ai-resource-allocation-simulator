@@ -114,7 +114,7 @@ the student-visible fields.
 
 ## Validation
 
-`src/data/validate_historical_data.py` checks that generated data is internally
+`scripts/data/validate_historical_data.py` checks that generated data is internally
 consistent. It validates required files, required columns, missing values,
 request ids, time ranges, request types, positive units and durations, cluster
 assignment feasibility, price consistency, revenue rules, and summary-table
@@ -122,7 +122,7 @@ consistency.
 
 ## Calibration
 
-`src/data/calibrate_hidden_environment.py` is a Stream A diagnostic tool. It is
+`scripts/data/calibrate_hidden_environment.py` is a Stream A diagnostic tool. It is
 not the official Stream B simulator. It runs simple internal policies against
 the hidden environment to check that the parameter choices create meaningful
 tradeoffs.
