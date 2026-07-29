@@ -3,7 +3,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer, Cell,
 } from 'recharts'
-import { postSimulateMonth } from '../lib/api'
+import { NetworkError, postSimulateMonth } from '../lib/api'
 import { createSubmission } from '../lib/storage'
 import type {
   BenchmarkResult,
@@ -317,6 +317,7 @@ export default function SimulationPage({
 }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [errorIsNetwork, setErrorIsNetwork] = useState(false)
   const [justSaved, setJustSaved] = useState(false)
   const [highlightedMonth, setHighlightedMonth] = useState<number | null>(null)
 
@@ -337,6 +338,7 @@ export default function SimulationPage({
 
     setLoading(true)
     setError(null)
+    setErrorIsNetwork(false)
     try {
       const res = await postSimulateMonth({
         month: nextMonth,
@@ -353,6 +355,7 @@ export default function SimulationPage({
       setHighlightedMonth(res.month)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Simulation failed')
+      setErrorIsNetwork(err instanceof NetworkError)
     } finally {
       setLoading(false)
     }
@@ -496,11 +499,15 @@ export default function SimulationPage({
         {error && (
           <div className="mt-3 rounded border border-red-200 bg-red-50 px-3 py-2.5 text-xs text-red-600 leading-relaxed">
             <strong>Error:</strong> {error}
-            <br />
-            <span className="text-red-600">
-              Is the backend running?{' '}
-              <code className="text-red-600">cd backend &amp;&amp; uvicorn app.main:app --reload</code>
-            </span>
+            {errorIsNetwork && (
+              <>
+                <br />
+                <span className="text-red-600">
+                  Is the backend running?{' '}
+                  <code className="text-red-600">cd backend &amp;&amp; uvicorn app.main:app --reload</code>
+                </span>
+              </>
+            )}
           </div>
         )}
       </SectionCard>
