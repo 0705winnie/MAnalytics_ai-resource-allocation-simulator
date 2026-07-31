@@ -17,57 +17,96 @@ admitted **and** completes before month-end.
 A React/TypeScript dashboard talks to a FastAPI backend over a `/api` proxy:
 
 ```text
-backend/app/
-  main.py                       # FastAPI entry point: CORS, router registration, /health
-  routers/
-    ai_assistant.py             # POST /ai-assistant
-    simulate.py                 # POST /simulate, POST /simulate/month
-  services/
-    llm_client.py                # Azure + mock LLM clients; provider via LLM_PROVIDER
-    mock_agent.py                # Deterministic Stream D teaching assistant for mock mode
-    prompt_templates.py          # System prompt builder (injects live dashboard context)
-    policy_sandbox.py            # Restricted exec() of a student's admission_policy code
-    simulation_engine.py         # Poisson arrivals, Gamma service times, capacity/departure tracking
-    baseline_policies.py         # 7 benchmark policies for student-policy comparison
-backend/tests/                  # pytest suite for the engine, sandbox, benchmarks, both endpoints
+ai-resource-allocation-simulator/
+  README.md                         # Project overview, setup, run, and test instructions
+  .gitignore                        # Keeps local secrets, caches, and build artifacts out of git
+  .env.example                      # Template for local mock/Azure AI assistant configuration
+  requirements.txt                  # Repo-level Python dependencies for backend + data scripts
 
-src/
-  App.tsx                       # Owns page routing + all state shared across pages
-  components/NavBar.tsx
-  pages/
-    IntroDataPage.tsx           # 01: case narrative, system params, historical-data charts
-    PolicyAIPage.tsx            # 02: policy editor, params editor, AI assistant chat
-    SimulationPage.tsx          # 03: month stepper, run control, monthly + cumulative results
-    LeaderboardPage.tsx         # 04: local submission history + leaderboard
-  lib/
-    api.ts                      # fetch wrappers: postChat, postSimulate, postSimulateMonth
-    storage.ts                  # localStorage-only user identity + submission history
-  data/historicalData.ts        # Static historical summary data bundled for Page 1
-```
+  package.json                      # Frontend scripts and JavaScript dependencies
+  package-lock.json                 # Locked JavaScript dependency versions
+  index.html                        # Vite app entry HTML
+  vite.config.ts                    # Vite config and /api proxy to FastAPI
+  tsconfig.json                     # TypeScript compiler config
+  tailwind.config.js                # Tailwind theme and design tokens
+  postcss.config.js                 # PostCSS/Tailwind processing config
 
-### Supporting Stream A files
+  backend/
+    requirements.txt                # Backend-only Python dependencies
+    pytest.ini                      # Backend pytest configuration
+    app/
+      main.py                       # FastAPI entry point: CORS, router registration, /health
+      routers/
+        ai_assistant.py             # POST /ai-assistant
+        simulate.py                 # POST /simulate, POST /simulate/month
+      services/
+        hidden_environment.py       # Hidden ground-truth parameters for data + simulator
+        simulation_engine.py        # Poisson arrivals, Gamma durations, capacity/departure tracking
+        baseline_policies.py        # Benchmark policies for student-policy comparison
+        policy_sandbox.py           # Restricted exec() of student admission_policy code
+        llm_client.py               # Azure + mock LLM clients; provider via LLM_PROVIDER
+        mock_agent.py               # Deterministic teaching assistant for mock mode
+        prompt_templates.py         # Assistant system prompts and guardrails
+    tests/
+      test_baseline_policies.py
+      test_simulation_engine.py
+      test_simulate_api.py
+      test_simulate_month.py
+      test_simulate_month_api.py
 
-Stream A data-generation and calibration utilities live outside the frontend:
+  src/
+    App.tsx                         # Owns page routing and state shared across pages
+    main.tsx                        # React app bootstrap
+    index.css                       # Tailwind layers and global styles
+    components/
+      NavBar.tsx                    # Dashboard navigation
+    pages/
+      IntroDataPage.tsx             # Case narrative, system params, historical-data charts
+      PolicyAIPage.tsx              # Policy editor, params editor, AI assistant chat
+      SimulationPage.tsx            # Month stepper, run control, monthly/cumulative results
+      LeaderboardPage.tsx           # Local submission history and leaderboard view
+    lib/
+      api.ts                        # fetch wrappers: postChat, postSimulate, postSimulateMonth
+      storage.ts                    # localStorage-only user identity + submission history
+    data/
+      historicalData.ts             # Static historical summary data bundled for Page 1
+    types/
+      simulation.ts                 # Frontend simulation-related types
+      user.ts                       # Frontend user/submission types
 
-```text
-scripts/data/
-  generate_historical_data.py
-  validate_historical_data.py
-  explore_historical_data.py
-  calibrate_hidden_environment.py
-```
+  scripts/
+    data/
+      generate_historical_data.py   # Generates historical request CSVs and frontend data
+      validate_historical_data.py   # Validates generated CSVs and summary consistency
+      explore_historical_data.py    # Produces exploratory plots and summary outputs
+      calibrate_hidden_environment.py # Internal policy checks for hidden-environment tuning
 
-The generated CSVs are stored in `data/generated/`, and exploratory figures are
-stored in `outputs/figures/`.
+  data/
+    generated/
+      historical_requests.csv       # Generated historical request-level data
+      summary_by_month.csv          # Generated monthly summary table
+      summary_by_type.csv           # Generated request-type summary table
+      summary_by_month_type.csv     # Generated month/request-type summary table
 
-### Documentation
+  outputs/
+    figures/
+      requests_by_month.png
+      requests_by_type.png
+      requests_by_month_type.png
+      duration_by_type.png
+      required_units_by_type.png
+      revenue_by_type.png
+      completion_rate_by_type.png
 
-```text
-docs/data_dictionary.md       # Stream A historical-data field definitions
-docs/formulation_memo.md      # Stream A problem formulation and environment design
-docs/project_report.md        # Draft project report
-docs/student_tutorial.md      # Self-contained student guide
-docs/instructor_notes.md      # Instructor/course setup notes
+  docs/
+    data_dictionary.md              # Historical-data field definitions
+    formulation_memo.md             # Problem formulation and hidden-environment design
+    project_report.md               # Draft project report
+    student_tutorial.md             # Self-contained student guide
+    instructor_notes.md             # Instructor/course setup notes
+
+  public/
+    favicon.svg                     # Dashboard favicon
 ```
 
 ## Setup
