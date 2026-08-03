@@ -35,11 +35,10 @@ export default function App() {
     setCompletedMonths([])
   }
 
-  // Phase 1 simulated account (see src/lib/storage.ts) — persisted to
-  // localStorage, not a real backend. currentUser is created once and never
-  // changes within a browser; submissionHistory is a personal log of saved
-  // simulation runs, newest first.
-  const [currentUser] = useState<CurrentUser>(() => getOrCreateCurrentUser())
+  // Local prototype identity retained only for the legacy History/Leaderboard
+  // preview. It is not authentication; AuthProvider owns the real server-backed
+  // Student session. submissionHistory remains local until simulation data moves.
+  const [localPrototypeUser] = useState<CurrentUser>(() => getOrCreateCurrentUser())
   const [submissionHistory, setSubmissionHistory] = useState<Submission[]>(() => loadSubmissionHistory())
 
   function handleSaveSubmission(submission: Submission) {
@@ -81,7 +80,7 @@ export default function App() {
           />
         )}
         {currentPage === 4 && (
-          <LeaderboardPage currentUser={currentUser} submissionHistory={submissionHistory} />
+          <LeaderboardPage currentUser={localPrototypeUser} submissionHistory={submissionHistory} />
         )}
       </main>
     </div>

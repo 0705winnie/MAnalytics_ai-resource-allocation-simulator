@@ -1,0 +1,24 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-resource_allocation}
+      POSTGRES_USER: ${POSTGRES_USER:-resource_app}
+      # Development only. Set POSTGRES_PASSWORD in .env before using this
+      # configuration anywhere outside an isolated local workstation.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-resource_dev_only_change_me}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+volumes:
+  postgres_data:

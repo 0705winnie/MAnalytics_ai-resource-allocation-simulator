@@ -1,0 +1,154 @@
+import { useCallback, useEffect, useState } from 'react'
+import { useParams } from 'react-router-dom'
+import { useAuth } from '../auth/AuthProvider'
+import CourseSectionNavigation from '../instructor/CourseSectionNavigation'
+import {
+  getInstructorCourse,
+  InstructorCourseApiError,
+} from '../instructor/api'
+import InstructorBreadcrumbs, {
+  courseBreadcrumbLabel,
+} from '../instructor/InstructorBreadcrumbs'
+import InstructorRosterManagement from '../instructor/InstructorRosterManagement'
+import type { InstructorCourse } from '../instructor/types'
+
+export default function InstructorCourseDetailPage() {
+  const { courseId = '' } = useParams()
+  const { refreshAuth } = useAuth()
+  const [course, setCourse] = useState<InstructorCourse | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [requestVersion, setRequestVersion] = useState(0)
+  const [rosterNavigationLocked, setRosterNavigationLocked] = useState(false)
+
+  const retry = useCallback(() => {
+    setRequestVersion((current) => current + 1)
+  }, [])
+
+  useEffect(() => {
+    const controller = new AbortController()
+
+    async function loadCourse() {
+      setLoading(true)
+      setError(null)
+      try {
+        setCourse(await getInstructorCourse(courseId, controller.signal))
+      } catch (requestError) {
+        if (controller.signal.aborted) return
+
+        setCourse(null)
+        if (
+          requestError instanceof InstructorCourseApiError
+          && requestError.code === 'unauthorized'
+        ) {
+          await refreshAuth()
+          setError('Course management is temporarily unavailable.')
+          return
+        }
+        setError(
+          requestError instanceof InstructorCourseApiError
+          && requestError.code === 'not_found'
+            ? 'Course not found.'
+            : requestError instanceof InstructorCourseApiError
+              && requestError.code === 'forbidden'
+              ? 'You do not have permission to manage this course.'
+              : 'Course management is temporarily unavailable.',
+        )
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoading(false)
+        }
+      }
+    }
+
+    void loadCourse()
+    return () => controller.abort()
+  }, [courseId, refreshAuth, requestVersion])
+
+  const visibleCourse = course?.id === courseId ? course : null
+
+  return (
+    <main className="mx-auto w-full max-w-6xl px-6 py-10 sm:px-10">
+      <InstructorBreadcrumbs
+        items={[
+          {
+            label: '← My Courses',
+            to: '/instructor/courses',
+            disabled: rosterNavigationLocked,
+            back: true,
+          },
+          {
+            label: visibleCourse
+              ? courseBreadcrumbLabel(
+                visibleCourse.course_code,
+                visibleCourse.semester,
+              )
+              : 'Course',
+            current: true,
+          },
+        ]}
+      />
+
+      {(loading || (course !== null && course.id !== courseId)) && (
+        <section
+          className="mt-6 rounded-xl border border-line bg-white p-6 shadow-card"
+          aria-live="polite"
+        >
+          <p className="text-sm font-medium">Loading course…</p>
+        </section>
+      )}
+
+      {!loading && !visibleCourse && error && (
+        <section className="mt-6 rounded-xl border border-red-200 bg-red-50 p-6">
+          <p className="text-sm text-red-800" role="alert">{error}</p>
+          <button
+            type="button"
+            onClick={retry}
+            className="mt-4 rounded-md border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-800 hover:bg-red-50"
+          >
+            Retry
+          </button>
+        </section>
+      )}
+
+      {!loading && !error && visibleCourse && (
+        <>
+          <section className="mt-6 rounded-xl border border-line bg-white p-6 shadow-card sm:p-8">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="font-mono text-xs uppercase tracking-wider text-hud-accent">
+                  {visibleCourse.course_code}
+                </p>
+                <h1 className="mt-2 text-3xl font-bold tracking-tight">
+                  {visibleCourse.course_name}
+                </h1>
+                <p className="mt-3 text-sm text-ink-dim">
+                  {visibleCourse.semester}
+                </p>
+              </div>
+              <span
+                className={[
+                  'w-fit rounded-full px-3 py-1 text-xs font-semibold',
+                  visibleCourse.is_active
+                    ? 'bg-emerald-50 text-emerald-700'
+                    : 'bg-slate-100 text-slate-600',
+                ].join(' ')}
+              >
+                {visibleCourse.is_active ? 'Active' : 'Inactive'}
+              </span>
+            </div>
+          </section>
+
+          <CourseSectionNavigation
+            navigationDisabled={rosterNavigationLocked}
+          />
+
+          <InstructorRosterManagement
+            course={visibleCourse}
+            onNavigationLockChange={setRosterNavigationLocked}
+          />
+        </>
+      )}
+    </main>
+  )
+}
