@@ -1,3 +1,10 @@
+> **Archived.** This audit describes the codebase at commit `0b7c0f4`,
+> before the account/course/authentication system existed. Statements below
+> such as "no active database layer exists" and "no authentication or
+> authorization implementation" are no longer true. For the current
+> architecture, setup, and instructor/student workflow, see the root
+> `README.md`. Kept for history only — see `docs/archive/README.md`.
+
 # Project Structure Audit
 
 **Audited branch:** `integration/main-dashboard`  
