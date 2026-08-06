@@ -148,7 +148,6 @@ activemq-data/
 *.sage.py
 
 # Environments
-.env
 .envrc
 .venv
 env/
@@ -227,10 +226,6 @@ outputs/.matplotlib-cache/
 .DS_Store
 
 .vite/
-
-database_backups/
-*.dump
-*.backup
 
 .env
 .env.*
