@@ -227,3 +227,14 @@ outputs/.matplotlib-cache/
 .DS_Store
 
 .vite/
+
+database_backups/
+*.dump
+*.backup
+
+.env
+.env.*
+!.env.example
+database_backups/
+*.dump
+*.backup
