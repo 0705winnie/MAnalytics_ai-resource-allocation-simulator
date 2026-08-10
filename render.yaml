@@ -1,0 +1,42 @@
+# Render Blueprint for the single-origin deployment: FastAPI serves the
+# built React/Vite frontend (dist/) and /api/*, backed by Neon PostgreSQL.
+#
+# Secret values (marked "sync: false" below) are NOT stored here and must
+# be entered manually in the Render dashboard after the service is created.
+# This file only pins non-secret production settings and the exact
+# build/start/migration commands.
+
+services:
+  - type: web
+    name: resource-allocation-simulator
+    runtime: python
+    plan: starter
+    buildCommand: "npm ci --legacy-peer-deps && npm run build && pip install -r backend/requirements.txt"
+    preDeployCommand: "cd backend && alembic upgrade head"
+    startCommand: "cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    healthCheckPath: /health
+    envVars:
+      # Fixed production settings (not secret) - see the deployment guide
+      # for why these two specifically must be true in production.
+      - key: AUTH_COOKIE_SECURE
+        value: "true"
+      - key: DISABLE_LEGACY_PROXY_ROUTES
+        value: "true"
+      - key: LLM_PROVIDER
+        value: "azure"
+
+      # Values that must be entered manually in the Render dashboard.
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: FRONTEND_ORIGIN
+        sync: false
+      - key: AZURE_OPENAI_ENDPOINT
+        sync: false
+      - key: AZURE_OPENAI_API_KEY
+        sync: false
+      - key: AZURE_OPENAI_DEPLOYMENT
+        sync: false
+      - key: AZURE_OPENAI_API_VERSION
+        sync: false

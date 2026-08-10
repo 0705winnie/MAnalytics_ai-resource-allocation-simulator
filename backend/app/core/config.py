@@ -67,6 +67,13 @@ class AuthSettings(BaseSettings):
     access_token_minutes: int = Field(default=30, ge=5, le=1440)
     activation_token_minutes: int = Field(default=10, ge=5, le=30)
     frontend_origin: str = "http://localhost:5173"
+    # The bare (no "/api" prefix) routers exist only so Vite's local dev
+    # proxy - which strips "/api" before forwarding - can reach them; see
+    # main.py. They are unused when the backend serves the built frontend
+    # itself, and collide with SPA page paths like /instructor/courses.
+    # Default False keeps local dev and tests unchanged; set true only for
+    # a single-origin production deployment.
+    disable_legacy_proxy_routes: bool = False
 
     @field_validator("frontend_origin")
     @classmethod

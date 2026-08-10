@@ -8,13 +8,19 @@ Run with:  cd backend && python3 -m uvicorn app.main:app --reload
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 # Load .env from the project root (two levels above this file)
-load_dotenv(Path(__file__).resolve().parents[2] / ".env")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+load_dotenv(PROJECT_ROOT / ".env")
+
+# The built frontend (npm run build). Absent in local dev, where Vite's
+# own dev server serves the frontend and proxies /api/* to this backend.
+FRONTEND_DIST = PROJECT_ROOT / "dist"
 
 from app.core.config import AuthSettings, get_auth_settings  # noqa: E402
 from app.routers import (  # noqa: E402
@@ -68,20 +74,51 @@ def create_app(auth_settings: AuthSettings | None = None) -> FastAPI:
     api.include_router(ai_assistant.router)
     api.include_router(simulate.router)
     api.include_router(auth.router, prefix="/api")
-    # Vite strips the browser-facing /api prefix before proxying locally.
-    api.include_router(auth.router, include_in_schema=False)
     api.include_router(activation.router, prefix="/api")
-    api.include_router(activation.router, include_in_schema=False)
     api.include_router(instructor_courses.router, prefix="/api")
-    api.include_router(instructor_courses.router, include_in_schema=False)
     api.include_router(instructor_roster.router, prefix="/api")
-    api.include_router(instructor_roster.router, include_in_schema=False)
     api.include_router(instructor_enrollments.router, prefix="/api")
-    api.include_router(instructor_enrollments.router, include_in_schema=False)
+
+    if not settings.disable_legacy_proxy_routes:
+        # Vite strips the browser-facing /api prefix before proxying
+        # locally, so local dev needs these same routers reachable at
+        # their bare (no "/api") paths too. In a single-origin production
+        # deployment this must be disabled: these bare paths collide with
+        # frontend SPA routes such as /instructor/courses.
+        api.include_router(auth.router, include_in_schema=False)
+        api.include_router(activation.router, include_in_schema=False)
+        api.include_router(instructor_courses.router, include_in_schema=False)
+        api.include_router(instructor_roster.router, include_in_schema=False)
+        api.include_router(instructor_enrollments.router, include_in_schema=False)
 
     @api.get("/health")
     def health_check() -> dict[str, str]:
         return {"status": "ok"}
+
+    # Production static frontend + SPA fallback. Only registered when a
+    # build exists, so local dev (no dist/) is unaffected: Vite's dev
+    # server keeps serving the frontend and proxying /api/* itself.
+    if FRONTEND_DIST.is_dir():
+        assets_dir = FRONTEND_DIST / "assets"
+        if assets_dir.is_dir():
+            api.mount(
+                "/assets",
+                StaticFiles(directory=assets_dir),
+                name="frontend-assets",
+            )
+
+        @api.get("/{full_path:path}", include_in_schema=False)
+        def serve_frontend(full_path: str) -> FileResponse:
+            """Serve a built static file, or fall back to index.html for
+            client-side routes. Registered last, so every API route above
+            still takes priority; only unmatched /api/* paths 404 here."""
+
+            if full_path.startswith("api/"):
+                raise HTTPException(status_code=404)
+            candidate = FRONTEND_DIST / full_path
+            if full_path and candidate.is_file():
+                return FileResponse(candidate)
+            return FileResponse(FRONTEND_DIST / "index.html")
 
     return api
 
