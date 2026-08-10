@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
-import CourseSectionNavigation from '../instructor/CourseSectionNavigation'
+import CourseSectionNavigation, {
+  type CourseSection,
+} from '../instructor/CourseSectionNavigation'
 import {
   getInstructorCourse,
   InstructorCourseApiError,
@@ -10,6 +12,7 @@ import InstructorBreadcrumbs, {
   courseBreadcrumbLabel,
 } from '../instructor/InstructorBreadcrumbs'
 import InstructorRosterManagement from '../instructor/InstructorRosterManagement'
+import InstructorStudentProgress from '../instructor/InstructorStudentProgress'
 import type { InstructorCourse } from '../instructor/types'
 
 export default function InstructorCourseDetailPage() {
@@ -20,6 +23,7 @@ export default function InstructorCourseDetailPage() {
   const [error, setError] = useState<string | null>(null)
   const [requestVersion, setRequestVersion] = useState(0)
   const [rosterNavigationLocked, setRosterNavigationLocked] = useState(false)
+  const [activeSection, setActiveSection] = useState<CourseSection>('roster')
 
   const retry = useCallback(() => {
     setRequestVersion((current) => current + 1)
@@ -140,13 +144,21 @@ export default function InstructorCourseDetailPage() {
           </section>
 
           <CourseSectionNavigation
+            activeSection={activeSection}
+            onSectionChange={setActiveSection}
             navigationDisabled={rosterNavigationLocked}
           />
 
-          <InstructorRosterManagement
-            course={visibleCourse}
-            onNavigationLockChange={setRosterNavigationLocked}
-          />
+          {activeSection === 'roster' && (
+            <InstructorRosterManagement
+              course={visibleCourse}
+              onNavigationLockChange={setRosterNavigationLocked}
+            />
+          )}
+
+          {activeSection === 'progress' && (
+            <InstructorStudentProgress course={visibleCourse} />
+          )}
         </>
       )}
     </main>

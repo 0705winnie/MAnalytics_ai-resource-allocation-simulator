@@ -24,6 +24,7 @@ from app.models.enums import EnrollmentStatus
 
 if TYPE_CHECKING:
     from app.models.course_instance import CourseInstance
+    from app.models.submission import Submission
     from app.models.user import User
 
 
@@ -110,4 +111,7 @@ class Enrollment(Base):
     )
     user: Mapped[User] = relationship(
         back_populates="enrollments",
+    )
+    submissions: Mapped[list[Submission]] = relationship(
+        back_populates="enrollment",
     )

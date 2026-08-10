@@ -8,6 +8,8 @@ import type {
   InstructorCourseListResponse,
   RosterImportResult,
   RosterImportSummary,
+  StudentProgress,
+  StudentProgressListResponse,
 } from './types'
 
 export type InstructorCourseApiErrorCode =
@@ -633,6 +635,97 @@ export async function regenerateInstructorActivationCode(
     )
     throwForCourseResponse(response)
     return await parseActivationReissueResponse(response, course, enrollment)
+  } catch (error) {
+    return unavailableUnlessAborted(error)
+  }
+}
+
+function parseStudentProgress(value: unknown): StudentProgress {
+  if (
+    !isRecord(value)
+    || typeof value.enrollment_id !== 'string'
+    || !isUuid(value.enrollment_id)
+    || typeof value.berkeley_username !== 'string'
+    || (value.nickname !== null && typeof value.nickname !== 'string')
+    || typeof value.submission_count !== 'number'
+    || value.submission_count < 0
+    || (value.latest_result_revenue !== null && typeof value.latest_result_revenue !== 'number')
+    || (
+      value.latest_submitted_at !== null
+      && (typeof value.latest_submitted_at !== 'string' || !isIsoTimestamp(value.latest_submitted_at))
+    )
+    || (value.best_result_revenue !== null && typeof value.best_result_revenue !== 'number')
+    || (value.submission_count === 0) !== (value.latest_submitted_at === null)
+  ) {
+    throw new InstructorCourseApiError('unavailable')
+  }
+
+  return {
+    enrollment_id: value.enrollment_id,
+    berkeley_username: value.berkeley_username,
+    nickname: value.nickname as string | null,
+    submission_count: value.submission_count,
+    latest_result_revenue: value.latest_result_revenue as number | null,
+    latest_submitted_at: value.latest_submitted_at as string | null,
+    best_result_revenue: value.best_result_revenue as number | null,
+  }
+}
+
+function parseStudentProgressList(value: unknown): StudentProgressListResponse {
+  if (
+    !isRecord(value)
+    || !Array.isArray(value.items)
+    || !Number.isInteger(value.total)
+    || (value.total as number) < 0
+    || !Number.isInteger(value.offset)
+    || (value.offset as number) < 0
+    || !Number.isInteger(value.limit)
+    || (value.limit as number) < 1
+  ) {
+    throw new InstructorCourseApiError('unavailable')
+  }
+
+  const items = value.items.map(parseStudentProgress)
+  if (
+    items.length > (value.limit as number)
+    || items.length > (value.total as number)
+  ) {
+    throw new InstructorCourseApiError('unavailable')
+  }
+
+  return {
+    items,
+    total: value.total as number,
+    offset: value.offset as number,
+    limit: value.limit as number,
+  }
+}
+
+export async function getInstructorCourseProgress(
+  courseId: string,
+  offset: number,
+  limit: number,
+  signal?: AbortSignal,
+): Promise<StudentProgressListResponse> {
+  const parameters = new URLSearchParams({
+    offset: String(offset),
+    limit: String(limit),
+  })
+
+  try {
+    const response = await fetch(
+      `/api/instructor/courses/${encodeURIComponent(courseId)}/progress?${parameters}`,
+      {
+        credentials: 'include',
+        signal,
+      },
+    )
+    throwForCourseResponse(response)
+    const result = parseStudentProgressList(await safeJson(response))
+    if (result.offset !== offset || result.limit !== limit) {
+      throw new InstructorCourseApiError('unavailable')
+    }
+    return result
   } catch (error) {
     return unavailableUnlessAborted(error)
   }

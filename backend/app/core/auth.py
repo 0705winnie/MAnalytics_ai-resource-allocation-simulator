@@ -258,3 +258,20 @@ def require_instructor(
             detail="Instructor access required",
         )
     return current_user
+
+
+def require_student(
+    context: Annotated[AuthContext, Depends(get_auth_context)],
+) -> AuthContext:
+    """Require an authenticated, course-scoped student."""
+
+    if (
+        context.user.role != UserRole.STUDENT
+        or context.enrollment is None
+        or context.course is None
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Student access required",
+        )
+    return context

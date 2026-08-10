@@ -29,8 +29,10 @@ from app.routers import (  # noqa: E402
     auth,
     instructor_courses,
     instructor_enrollments,
+    instructor_progress,
     instructor_roster,
     simulate,
+    submissions,
 )
 
 
@@ -73,11 +75,13 @@ def create_app(auth_settings: AuthSettings | None = None) -> FastAPI:
 
     api.include_router(ai_assistant.router, prefix="/api")
     api.include_router(simulate.router, prefix="/api")
+    api.include_router(submissions.router, prefix="/api")
     api.include_router(auth.router, prefix="/api")
     api.include_router(activation.router, prefix="/api")
     api.include_router(instructor_courses.router, prefix="/api")
     api.include_router(instructor_roster.router, prefix="/api")
     api.include_router(instructor_enrollments.router, prefix="/api")
+    api.include_router(instructor_progress.router, prefix="/api")
 
     if not settings.disable_legacy_proxy_routes:
         # Vite strips the browser-facing /api prefix before proxying
@@ -87,11 +91,13 @@ def create_app(auth_settings: AuthSettings | None = None) -> FastAPI:
         # frontend SPA routes such as /instructor/courses.
         api.include_router(ai_assistant.router, include_in_schema=False)
         api.include_router(simulate.router, include_in_schema=False)
+        api.include_router(submissions.router, include_in_schema=False)
         api.include_router(auth.router, include_in_schema=False)
         api.include_router(activation.router, include_in_schema=False)
         api.include_router(instructor_courses.router, include_in_schema=False)
         api.include_router(instructor_roster.router, include_in_schema=False)
         api.include_router(instructor_enrollments.router, include_in_schema=False)
+        api.include_router(instructor_progress.router, include_in_schema=False)
 
     @api.get("/health")
     def health_check() -> dict[str, str]:

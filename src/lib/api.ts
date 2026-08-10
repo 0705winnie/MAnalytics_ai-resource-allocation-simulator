@@ -3,6 +3,8 @@ import type {
   SimulateMonthRequest,
   SimulateRequest,
   SimulationResponse,
+  SubmitResultRequest,
+  SubmitResultResponse,
 } from '../types/simulation'
 
 export interface ChatMessage {
@@ -66,4 +68,35 @@ export function postSimulate(req: SimulateRequest): Promise<SimulationResponse> 
 
 export function postSimulateMonth(req: SimulateMonthRequest): Promise<MonthDetailResult> {
   return postJSON('/api/simulate/month', req)
+}
+
+// A separate, authenticated flow from postSimulate/postSimulateMonth above:
+// this is the only call in this file that sends the student's session
+// cookie, since submitting a result (unlike running a simulation) must be
+// tied to the authenticated student's enrollment.
+async function postJSONAuthenticated<T>(url: string, body: unknown): Promise<T> {
+  let res: Response
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(body),
+    })
+  } catch (err) {
+    throw new NetworkError(err instanceof Error ? err.message : 'Network request failed')
+  }
+  if (!res.ok) {
+    const parsed = await res.json().catch(() => null)
+    const detail = (parsed as { detail?: string } | null)?.detail
+    if (detail === undefined) {
+      throw new NetworkError(`The backend did not respond as expected (HTTP ${res.status}).`)
+    }
+    throw new Error(detail)
+  }
+  return res.json() as Promise<T>
+}
+
+export function postSubmitResult(req: SubmitResultRequest): Promise<SubmitResultResponse> {
+  return postJSONAuthenticated('/api/submissions', req)
 }

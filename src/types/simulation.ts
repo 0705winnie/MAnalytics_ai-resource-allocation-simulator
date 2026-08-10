@@ -81,3 +81,21 @@ export interface SimulateMonthRequest {
   previous_months: MonthDetailResult[]
   // No `seed` field, same reasoning as SimulateRequest above.
 }
+
+// POST /submissions — separate, authenticated from POST /simulate. The
+// server independently recomputes the result from policy_code + params
+// rather than trusting any client-supplied numbers, so this request only
+// carries the inputs.
+export interface SubmitResultRequest {
+  policy_code: string
+  params: PolicyParams
+}
+
+export interface SubmitResultResponse {
+  id: string
+  total_revenue: number
+  total_unfinished_requests: number
+  total_unfinished_value: number
+  warnings_count: number
+  submitted_at: string
+}

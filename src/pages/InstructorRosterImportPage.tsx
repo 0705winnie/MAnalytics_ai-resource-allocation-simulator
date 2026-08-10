@@ -6,7 +6,7 @@ import {
   type ChangeEvent,
   type FormEvent,
 } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
 import CourseSectionNavigation from '../instructor/CourseSectionNavigation'
 import {
@@ -27,6 +27,7 @@ const ROSTER_FILENAME = 'roster-activation-codes.csv'
 
 export default function InstructorRosterImportPage() {
   const { courseId = '' } = useParams()
+  const navigate = useNavigate()
   const { refreshAuth } = useAuth()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const activeObjectUrls = useRef(new Set<string>())
@@ -250,6 +251,12 @@ export default function InstructorRosterImportPage() {
           </header>
 
           <CourseSectionNavigation
+            activeSection="roster"
+            onSectionChange={(section) => {
+              if (section === 'progress') {
+                navigate(`/instructor/courses/${encodeURIComponent(courseId)}`)
+              }
+            }}
             navigationDisabled={importing}
           />
 

@@ -3,7 +3,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer, Cell,
 } from 'recharts'
-import { NetworkError, postSimulateMonth } from '../lib/api'
+import { NetworkError, postSimulateMonth, postSubmitResult } from '../lib/api'
 import { createSubmission } from '../lib/storage'
 import type {
   BenchmarkResult,
@@ -318,6 +318,9 @@ export default function SimulationPage({
   const [errorIsNetwork, setErrorIsNetwork] = useState(false)
   const [justSaved, setJustSaved] = useState(false)
   const [highlightedMonth, setHighlightedMonth] = useState<number | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  const [justSubmitted, setJustSubmitted] = useState(false)
 
   const hasSignature = policyCode.includes('def admission_policy(')
   const paramEntries = Object.entries(policyParams)
@@ -364,6 +367,26 @@ export default function SimulationPage({
     onSaveSubmission(createSubmission(policyCode, policyParams, aggregateMonths(completedMonths)))
     setJustSaved(true)
     setTimeout(() => setJustSaved(false), 2000)
+  }
+
+  async function submitResult() {
+    if (completedMonths.length === 0 || submitting) return
+    setSubmitting(true)
+    setSubmitError(null)
+    try {
+      // The server independently recomputes this result from policy_code +
+      // params (same inputs already used to produce completedMonths) rather
+      // than trusting any client-supplied numbers — see backend/app/routers
+      // /submissions.py. This is separate from Save to My History above,
+      // which only ever writes to this browser's local storage.
+      await postSubmitResult({ policy_code: policyCode, params: policyParams })
+      setJustSubmitted(true)
+      setTimeout(() => setJustSubmitted(false), 2000)
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Submission failed')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const aggregated = completedMonths.length > 0 ? aggregateMonths(completedMonths) : null
@@ -644,6 +667,25 @@ export default function SimulationPage({
               {justSaved ? 'Saved ✓' : 'Save to My History'}
             </button>
           </div>
+
+          <div className="flex items-center justify-between gap-4">
+            <p className="text-ink-faint text-xs">
+              Submit this result to your instructor for course credit.
+            </p>
+            <button
+              onClick={() => void submitResult()}
+              disabled={submitting}
+              className="shrink-0 rounded border border-hud-accent/30 bg-hud-accent/7 px-4 py-1.5 text-xs font-medium text-hud-accent hover:bg-hud-accent/14 focus:outline-none focus-visible:ring-2 focus-visible:ring-hud-accent/60 transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {submitting ? 'Submitting…' : justSubmitted ? 'Submitted ✓' : 'Submit Result'}
+            </button>
+          </div>
+
+          {submitError && (
+            <p className="text-xs text-red-700" role="alert">
+              {submitError}
+            </p>
+          )}
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             <StatTile

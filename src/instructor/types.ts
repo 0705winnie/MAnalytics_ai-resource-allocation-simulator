@@ -67,3 +67,20 @@ export interface InstructorEnrollmentListQuery {
 export interface ActivationCodeReissueResult {
   csv: Blob
 }
+
+export interface StudentProgress {
+  enrollment_id: string
+  berkeley_username: string
+  nickname: string | null
+  submission_count: number
+  latest_result_revenue: number | null
+  latest_submitted_at: string | null
+  best_result_revenue: number | null
+}
+
+export interface StudentProgressListResponse {
+  items: StudentProgress[]
+  total: number
+  offset: number
+  limit: number
+}
