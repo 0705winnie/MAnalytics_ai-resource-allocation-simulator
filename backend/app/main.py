@@ -71,8 +71,8 @@ def create_app(auth_settings: AuthSettings | None = None) -> FastAPI:
             content={"detail": safe_errors},
         )
 
-    api.include_router(ai_assistant.router)
-    api.include_router(simulate.router)
+    api.include_router(ai_assistant.router, prefix="/api")
+    api.include_router(simulate.router, prefix="/api")
     api.include_router(auth.router, prefix="/api")
     api.include_router(activation.router, prefix="/api")
     api.include_router(instructor_courses.router, prefix="/api")
@@ -85,6 +85,8 @@ def create_app(auth_settings: AuthSettings | None = None) -> FastAPI:
         # their bare (no "/api") paths too. In a single-origin production
         # deployment this must be disabled: these bare paths collide with
         # frontend SPA routes such as /instructor/courses.
+        api.include_router(ai_assistant.router, include_in_schema=False)
+        api.include_router(simulate.router, include_in_schema=False)
         api.include_router(auth.router, include_in_schema=False)
         api.include_router(activation.router, include_in_schema=False)
         api.include_router(instructor_courses.router, include_in_schema=False)
