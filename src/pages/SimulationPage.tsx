@@ -301,7 +301,6 @@ interface Props {
   policyParams: PolicyParams
   completedMonths: MonthDetailResult[]
   onMonthCompleted: (result: MonthDetailResult) => void
-  onResetSession: () => void
   onSaveSubmission: (submission: Submission) => void
   onNavigate: (page: Page) => void
 }
@@ -311,7 +310,6 @@ export default function SimulationPage({
   policyParams,
   completedMonths,
   onMonthCompleted,
-  onResetSession,
   onSaveSubmission,
   onNavigate,
 }: Props) {
@@ -359,18 +357,6 @@ export default function SimulationPage({
     } finally {
       setLoading(false)
     }
-  }
-
-  function resetSession() {
-    if (completedMonths.length === 0) return
-    const confirmed = window.confirm(
-      `This will discard all ${completedMonths.length} completed month${completedMonths.length === 1 ? '' : 's'} ` +
-      `and restart the simulation from Month 1. Your policy code and parameters won't be affected. Continue?`
-    )
-    if (!confirmed) return
-    onResetSession()
-    setHighlightedMonth(null)
-    setError(null)
   }
 
   function saveToHistory() {
@@ -829,18 +815,6 @@ export default function SimulationPage({
             </div>
           </SectionCard>
         </>
-      )}
-
-      {/* ── Reset session ─────────────────────────────────────────────────── */}
-      {completedMonths.length > 0 && (
-        <div className="flex justify-end">
-          <button
-            onClick={resetSession}
-            className="text-xs text-ink-faintest hover:text-red-600 border border-line hover:border-red-200 rounded px-3 py-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/60 transition-colors"
-          >
-            Reset Session (discard all months)
-          </button>
-        </div>
       )}
 
     </div>

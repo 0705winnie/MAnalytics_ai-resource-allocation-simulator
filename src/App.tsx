@@ -31,10 +31,6 @@ export default function App() {
     setCompletedMonths((prev) => [...prev, result])
   }
 
-  function handleResetSession() {
-    setCompletedMonths([])
-  }
-
   // Local prototype identity retained only for the legacy History/Leaderboard
   // preview. It is not authentication; AuthProvider owns the real server-backed
   // Student session. submissionHistory remains local until simulation data moves.
@@ -74,7 +70,6 @@ export default function App() {
             policyParams={policyParams}
             completedMonths={completedMonths}
             onMonthCompleted={handleMonthCompleted}
-            onResetSession={handleResetSession}
             onSaveSubmission={handleSaveSubmission}
             onNavigate={setCurrentPage}
           />
