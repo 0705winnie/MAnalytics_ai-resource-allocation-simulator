@@ -61,20 +61,12 @@ function MonthDetails({ result }: { result: OfficialMonthlyResult }) {
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-faint">By type</p>
           <div className="space-y-1 text-xs text-ink-dim">
             {result.by_type.map((row) => (
-              <p key={row.type}>
-                <span className="capitalize">{row.type}</span>: {row.completed_requests}/{row.total_requests} completed,{' '}
-                {formatMoney(row.total_revenue)} revenue
+              <p key={row.type} className="flex items-center justify-between gap-3">
+                <span className="capitalize">{row.type}</span>
+                <span className="font-mono">{formatMoney(row.total_revenue)}</span>
               </p>
             ))}
           </div>
-        </div>
-        <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-faint">Remaining capacity</p>
-          <p className="font-mono text-xs text-ink-dim">
-            {Object.entries(result.remaining_capacity)
-              .map(([cluster, capacity]) => `C${cluster}: ${capacity}`)
-              .join(' · ')}
-          </p>
         </div>
         <div>
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-faint">Utilization</p>
