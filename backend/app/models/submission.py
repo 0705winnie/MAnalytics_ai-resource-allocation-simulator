@@ -33,6 +33,7 @@ class Submission(Base):
     total_unfinished_requests: Mapped[int] = mapped_column(Integer, nullable=False)
     total_unfinished_value: Mapped[float] = mapped_column(Float, nullable=False)
     warnings_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    months_completed: Mapped[int] = mapped_column(Integer, nullable=False)
     submitted_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

@@ -1,4 +1,4 @@
-export type CourseSection = 'roster' | 'progress'
+export type CourseSection = 'roster' | 'progress' | 'leaderboards'
 
 interface CourseSectionNavigationProps {
   activeSection: CourseSection
@@ -19,6 +19,7 @@ export default function CourseSectionNavigation({
   const sections: { id: CourseSection; label: string }[] = [
     { id: 'roster', label: 'Roster Management' },
     { id: 'progress', label: 'Student Progress' },
+    { id: 'leaderboards', label: 'Leaderboards' },
   ]
 
   return (

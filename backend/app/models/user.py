@@ -21,6 +21,10 @@ class User(Base):
     __tablename__ = "users"
     __table_args__ = (
         CheckConstraint(
+            "role IN ('student', 'instructor')",
+            name="user_role",
+        ),
+        CheckConstraint(
             "char_length(berkeley_username) BETWEEN 1 AND 64",
             name="ck_users_berkeley_username_length",
         ),
@@ -46,7 +50,7 @@ class User(Base):
             UserRole,
             name="user_role",
             native_enum=False,
-            create_constraint=True,
+            create_constraint=False,
             validate_strings=True,
             values_callable=lambda enum_type: [member.value for member in enum_type],
         ),

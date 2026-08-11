@@ -6,6 +6,8 @@ import type {
   InstructorEnrollmentListResponse,
   InstructorCourse,
   InstructorCourseListResponse,
+  InstructorLeaderboardEntry,
+  InstructorLeaderboardResponse,
   RosterImportResult,
   RosterImportSummary,
   StudentProgress,
@@ -647,15 +649,16 @@ function parseStudentProgress(value: unknown): StudentProgress {
     || !isUuid(value.enrollment_id)
     || typeof value.berkeley_username !== 'string'
     || (value.nickname !== null && typeof value.nickname !== 'string')
-    || typeof value.submission_count !== 'number'
-    || value.submission_count < 0
-    || (value.latest_result_revenue !== null && typeof value.latest_result_revenue !== 'number')
-    || (
-      value.latest_submitted_at !== null
-      && (typeof value.latest_submitted_at !== 'string' || !isIsoTimestamp(value.latest_submitted_at))
-    )
-    || (value.best_result_revenue !== null && typeof value.best_result_revenue !== 'number')
-    || (value.submission_count === 0) !== (value.latest_submitted_at === null)
+    || !['pending', 'active', 'disabled'].includes(String(value.enrollment_status))
+    || typeof value.user_is_active !== 'boolean'
+    || !Number.isInteger(value.completed_months)
+    || (value.completed_months as number) < 0
+    || (value.completed_months as number) > 12
+    || typeof value.cumulative_revenue !== 'number'
+    || (value.last_activity !== null && (typeof value.last_activity !== 'string' || !isIsoTimestamp(value.last_activity)))
+    || !['not_started', 'in_progress', 'completed'].includes(String(value.simulation_status))
+    || !Number.isInteger(value.warnings_count)
+    || (value.warnings_count as number) < 0
   ) {
     throw new InstructorCourseApiError('unavailable')
   }
@@ -664,10 +667,81 @@ function parseStudentProgress(value: unknown): StudentProgress {
     enrollment_id: value.enrollment_id,
     berkeley_username: value.berkeley_username,
     nickname: value.nickname as string | null,
-    submission_count: value.submission_count,
-    latest_result_revenue: value.latest_result_revenue as number | null,
-    latest_submitted_at: value.latest_submitted_at as string | null,
-    best_result_revenue: value.best_result_revenue as number | null,
+    enrollment_status: value.enrollment_status as StudentProgress['enrollment_status'],
+    user_is_active: value.user_is_active,
+    completed_months: value.completed_months as number,
+    cumulative_revenue: value.cumulative_revenue,
+    last_activity: value.last_activity as string | null,
+    simulation_status: value.simulation_status as StudentProgress['simulation_status'],
+    warnings_count: value.warnings_count as number,
+  }
+}
+
+function parseInstructorLeaderboard(value: unknown): InstructorLeaderboardResponse {
+  if (
+    !isRecord(value)
+    || !Number.isInteger(value.stage)
+    || (value.stage as number) < 0
+    || (value.stage as number) > 12
+    || (value.current_user_eligible !== null && typeof value.current_user_eligible !== 'boolean')
+    || !Array.isArray(value.items)
+  ) {
+    throw new InstructorCourseApiError('unavailable')
+  }
+  const items = value.items.map((item): InstructorLeaderboardEntry => {
+    if (
+      !isRecord(item)
+      || !Number.isInteger(item.rank)
+      || (item.rank as number) < 1
+      || typeof item.nickname !== 'string'
+      || item.nickname.length === 0
+      || !Number.isInteger(item.completed_months)
+      || item.completed_months !== value.stage
+      || typeof item.cumulative_revenue !== 'number'
+      || (item.last_activity !== null && (typeof item.last_activity !== 'string' || !isIsoTimestamp(item.last_activity)))
+      || typeof item.is_current_user !== 'boolean'
+    ) {
+      throw new InstructorCourseApiError('unavailable')
+    }
+    return item as unknown as InstructorLeaderboardEntry
+  })
+  return {
+    stage: value.stage as number,
+    current_user_eligible: value.current_user_eligible as boolean | null,
+    items,
+  }
+}
+
+export async function getInstructorSameStageLeaderboard(
+  courseId: string,
+  stage: number,
+  signal?: AbortSignal,
+): Promise<InstructorLeaderboardResponse> {
+  try {
+    const response = await fetch(
+      `/api/instructor/courses/${encodeURIComponent(courseId)}/leaderboards/same-stage?stage=${stage}`,
+      { credentials: 'include', signal },
+    )
+    throwForCourseResponse(response)
+    return parseInstructorLeaderboard(await safeJson(response))
+  } catch (error) {
+    return unavailableUnlessAborted(error)
+  }
+}
+
+export async function getInstructorFinalLeaderboard(
+  courseId: string,
+  signal?: AbortSignal,
+): Promise<InstructorLeaderboardResponse> {
+  try {
+    const response = await fetch(
+      `/api/instructor/courses/${encodeURIComponent(courseId)}/leaderboards/final`,
+      { credentials: 'include', signal },
+    )
+    throwForCourseResponse(response)
+    return parseInstructorLeaderboard(await safeJson(response))
+  } catch (error) {
+    return unavailableUnlessAborted(error)
   }
 }
 

@@ -31,6 +31,8 @@ from app.routers import (  # noqa: E402
     instructor_enrollments,
     instructor_progress,
     instructor_roster,
+    leaderboards,
+    official_simulation,
     simulate,
     submissions,
 )
@@ -82,6 +84,8 @@ def create_app(auth_settings: AuthSettings | None = None) -> FastAPI:
     api.include_router(instructor_roster.router, prefix="/api")
     api.include_router(instructor_enrollments.router, prefix="/api")
     api.include_router(instructor_progress.router, prefix="/api")
+    api.include_router(leaderboards.router, prefix="/api")
+    api.include_router(official_simulation.router, prefix="/api")
 
     if not settings.disable_legacy_proxy_routes:
         # Vite strips the browser-facing /api prefix before proxying
@@ -98,6 +102,8 @@ def create_app(auth_settings: AuthSettings | None = None) -> FastAPI:
         api.include_router(instructor_roster.router, include_in_schema=False)
         api.include_router(instructor_enrollments.router, include_in_schema=False)
         api.include_router(instructor_progress.router, include_in_schema=False)
+        api.include_router(leaderboards.router, include_in_schema=False)
+        api.include_router(official_simulation.router, include_in_schema=False)
 
     @api.get("/health")
     def health_check() -> dict[str, str]:

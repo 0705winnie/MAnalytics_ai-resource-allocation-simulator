@@ -11,7 +11,7 @@ from enum import StrEnum
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import CourseInstance, Enrollment, User
+from app.models import CourseInstance, Enrollment, SimulationSession, User
 from app.models.enums import EnrollmentStatus, UserRole
 from app.services.activation_codes import issue_activation_code
 
@@ -201,6 +201,7 @@ def import_roster(
             user=user,
             nickname=None,
             status=EnrollmentStatus.PENDING,
+            simulation_session=SimulationSession(),
         )
         activation_code = issue_activation_code(enrollment)
         db.add(enrollment)

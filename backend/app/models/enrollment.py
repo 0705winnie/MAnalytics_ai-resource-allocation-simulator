@@ -24,6 +24,7 @@ from app.models.enums import EnrollmentStatus
 
 if TYPE_CHECKING:
     from app.models.course_instance import CourseInstance
+    from app.models.simulation_session import SimulationSession
     from app.models.submission import Submission
     from app.models.user import User
 
@@ -31,6 +32,10 @@ if TYPE_CHECKING:
 class Enrollment(Base):
     __tablename__ = "enrollments"
     __table_args__ = (
+        CheckConstraint(
+            "status IN ('pending', 'active', 'disabled')",
+            name="enrollment_status",
+        ),
         UniqueConstraint(
             "course_id",
             "user_id",
@@ -86,7 +91,7 @@ class Enrollment(Base):
             EnrollmentStatus,
             name="enrollment_status",
             native_enum=False,
-            create_constraint=True,
+            create_constraint=False,
             validate_strings=True,
             values_callable=lambda enum_type: [member.value for member in enum_type],
         ),
@@ -114,4 +119,8 @@ class Enrollment(Base):
     )
     submissions: Mapped[list[Submission]] = relationship(
         back_populates="enrollment",
+    )
+    simulation_session: Mapped[SimulationSession] = relationship(
+        back_populates="enrollment",
+        uselist=False,
     )

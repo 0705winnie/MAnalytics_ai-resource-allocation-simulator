@@ -31,16 +31,6 @@ export interface SimulationTypeResult {
   total_revenue: number
 }
 
-export interface SimulationResponse {
-  monthly: SimulationMonthResult[]
-  by_type: SimulationTypeResult[]
-  total_revenue: number
-  total_unfinished_requests: number
-  total_unfinished_value: number
-  warnings: string[]
-  benchmark_comparison: BenchmarkResult[]
-}
-
 export interface BenchmarkResult {
   policy: string
   total_revenue: number
@@ -50,13 +40,6 @@ export interface BenchmarkResult {
   completed_requests: number
   rejected_requests: number
   warnings_count: number
-}
-
-export interface SimulateRequest {
-  policy_code: string
-  params: PolicyParams
-  // No `seed` field: the backend rejects it (422) and always tests policies
-  // against its own DEFAULT_SEED so every run is fair and comparable.
 }
 
 // Response shape for POST /simulate/month — one month's full detail,
@@ -70,32 +53,72 @@ export interface MonthDetailResult extends SimulationMonthResult {
   remaining_capacity: Record<string, number>
 }
 
-export interface SimulateMonthRequest {
-  month: number
+export interface OfficialMonthlyResult extends MonthDetailResult {
   policy_code: string
   params: PolicyParams
-  // Prior completed months, echoed back from earlier /simulate/month
-  // responses, so the policy's `history["previous_months"]` isn't always
-  // empty — the backend has no session storage, so the client (which
-  // already holds these) is the source of truth here.
-  previous_months: MonthDetailResult[]
-  // No `seed` field, same reasoning as SimulateRequest above.
+  policy_hash: string
+  completed_at: string
 }
 
-// POST /submissions — separate, authenticated from POST /simulate. The
-// server independently recomputes the result from policy_code + params
-// rather than trusting any client-supplied numbers, so this request only
-// carries the inputs.
-export interface SubmitResultRequest {
-  policy_code: string
-  params: PolicyParams
-}
-
-export interface SubmitResultResponse {
-  id: string
+export interface OfficialCumulativeResult {
+  total_requests: number
+  admitted_requests: number
+  completed_requests: number
+  rejected_requests: number
   total_revenue: number
   total_unfinished_requests: number
   total_unfinished_value: number
   warnings_count: number
-  submitted_at: string
+  by_type: SimulationTypeResult[]
+  benchmark_comparison: BenchmarkResult[]
+}
+
+export interface OfficialLatestPolicy {
+  policy_code: string
+  params: PolicyParams
+  policy_hash: string
+}
+
+export interface OfficialSimulationSession {
+  session_id: string
+  completed_months: number
+  next_month: number | null
+  status: 'not_started' | 'in_progress' | 'completed'
+  cumulative: OfficialCumulativeResult
+  monthly_results: OfficialMonthlyResult[]
+  latest_policy: OfficialLatestPolicy | null
+}
+
+export interface RunNextMonthRequest {
+  expected_month: number
+  idempotency_key: string
+  policy_code: string
+  params: PolicyParams
+}
+
+export interface RunNextMonthResponse {
+  replayed: boolean
+  executed_month: number
+  session: OfficialSimulationSession
+}
+
+export interface StructuredApiErrorDetail {
+  code: string
+  message: string
+  context?: Record<string, unknown>
+}
+
+export interface LeaderboardEntry {
+  rank: number
+  nickname: string
+  completed_months: number
+  cumulative_revenue: number
+  last_activity: string | null
+  is_current_user: boolean
+}
+
+export interface LeaderboardResponse {
+  stage: number
+  current_user_eligible: boolean | null
+  items: LeaderboardEntry[]
 }

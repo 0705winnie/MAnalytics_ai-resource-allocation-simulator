@@ -1,303 +1,282 @@
-import type { ReactNode } from 'react'
-import type { CurrentUser, Submission } from '../types/user'
+import { useEffect, useState, type ReactNode } from 'react'
+import { getFinalLeaderboard, getSameStageLeaderboard } from '../lib/api'
+import type { LeaderboardResponse, OfficialMonthlyResult, OfficialSimulationSession } from '../types/simulation'
 
-// ── Mock data ────────────────────────────────────────────────────────────────
-// Phase 1 prototype only — there is no shared backend, so "classmates" are
-// hardcoded and the leaderboard only ever reflects this one browser's user.
-// See the Phase 2 notes in the chat response for what real cross-student
-// data would require.
+type HistoryView = 'history' | 'same-stage' | 'final'
 
-interface MockClassmate {
-  anonymousName: string
-  bestRunRevenue: number
-  monthsCompleted: number
-  vipCompletionRate: number | null
-  lastSubmission: string
-}
-
-const MOCK_CLASSMATES: MockClassmate[] = [
-  { anonymousName: 'Bright Comet 41', bestRunRevenue: 612430, monthsCompleted: 12, vipCompletionRate: 0.97, lastSubmission: '2026-07-02T10:00:00.000Z' },
-  { anonymousName: 'Steady Ridge 18', bestRunRevenue: 574210, monthsCompleted: 12, vipCompletionRate: 0.93, lastSubmission: '2026-07-03T15:30:00.000Z' },
-  { anonymousName: 'Keen Atlas 77',   bestRunRevenue: 498650, monthsCompleted: 11, vipCompletionRate: 0.89, lastSubmission: '2026-07-01T09:15:00.000Z' },
-  { anonymousName: 'Calm Harbor 23',  bestRunRevenue: 441200, monthsCompleted: 12, vipCompletionRate: 0.91, lastSubmission: '2026-06-30T18:45:00.000Z' },
-]
-
-interface MockSubmissionRow {
-  id: string
-  timestamp: string
-  total_revenue: number
-  warningsCount: number
-}
-
-const MOCK_PAST_SUBMISSIONS: MockSubmissionRow[] = [
-  { id: 'sample-1', timestamp: '2026-06-28T14:20:00.000Z', total_revenue: 402100, warningsCount: 3 },
-  { id: 'sample-2', timestamp: '2026-06-30T09:05:00.000Z', total_revenue: 455800, warningsCount: 0 },
-]
-
-// ── Sub-components ───────────────────────────────────────────────────────────
-
-function SectionCard({
-  title,
-  label,
-  children,
-}: {
-  title: string
-  label?: string
-  children: ReactNode
-}) {
+function SectionCard({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="rounded-lg border border-line bg-white p-6 shadow-card">
-      <div className="flex items-center gap-3 mb-5">
-        {label && (
-          <span className="text-xs font-mono px-2 py-0.5 rounded bg-chip text-ink-faint shrink-0">
-            {label}
-          </span>
-        )}
-        <h2 className="text-xs font-semibold uppercase tracking-widest text-ink-faint">
-          {title}
-        </h2>
-      </div>
+      <h2 className="mb-5 text-xs font-semibold uppercase tracking-widest text-ink-faint">
+        {title}
+      </h2>
       {children}
     </div>
   )
 }
 
-function StatTile({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
-  return (
-    <div className="rounded-lg border border-line bg-well px-4 py-3">
-      <div className="text-xs text-ink-faint mb-1">{label}</div>
-      <div className={`font-mono font-semibold text-sm ${accent ? 'text-hud-accent' : 'text-ink'}`}>
-        {value}
-      </div>
-    </div>
-  )
-}
-
-function SampleDataBanner() {
-  return (
-    <p className="mb-3 text-xs text-amber-700/90 italic">
-      Showing sample data — run a simulation on 03 Simulation and save it here to replace this.
-    </p>
-  )
-}
-
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+  return new Date(iso).toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  })
 }
 
-function formatMoney(n: number): string {
-  return `$${Math.round(n).toLocaleString()}`
+function formatMoney(value: number): string {
+  return `$${value.toLocaleString()}`
 }
 
-// ── Page ─────────────────────────────────────────────────────────────────────
+function PolicySnapshot({ result }: { result: OfficialMonthlyResult }) {
+  return (
+    <details className="mt-4 rounded border border-line bg-well/60 p-3">
+      <summary className="cursor-pointer text-xs font-semibold text-hud-accent">
+        View Policy Used
+      </summary>
+      <div className="mt-3 space-y-3">
+        <pre className="max-h-72 overflow-auto whitespace-pre-wrap rounded border border-line bg-white p-3 font-mono text-xs text-ink-dim">
+          {result.policy_code}
+        </pre>
+        <div>
+          <p className="mb-1 text-xs text-ink-faint">Parameters</p>
+          <pre className="overflow-auto rounded border border-line bg-white p-3 font-mono text-xs text-ink-dim">
+            {JSON.stringify(result.params, null, 2)}
+          </pre>
+        </div>
+      </div>
+    </details>
+  )
+}
+
+function MonthDetails({ result }: { result: OfficialMonthlyResult }) {
+  return (
+    <details className="border-b border-line px-3 py-3">
+      <summary className="cursor-pointer text-xs font-medium text-ink-dim">
+        More Month {result.month} details
+      </summary>
+      <div className="mt-4 grid gap-5 md:grid-cols-2">
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-faint">By type</p>
+          <div className="space-y-1 text-xs text-ink-dim">
+            {result.by_type.map((row) => (
+              <p key={row.type}>
+                <span className="capitalize">{row.type}</span>: {row.completed_requests}/{row.total_requests} completed,{' '}
+                {formatMoney(row.total_revenue)} revenue
+              </p>
+            ))}
+          </div>
+        </div>
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-faint">Remaining capacity</p>
+          <p className="font-mono text-xs text-ink-dim">
+            {Object.entries(result.remaining_capacity)
+              .map(([cluster, capacity]) => `C${cluster}: ${capacity}`)
+              .join(' · ')}
+          </p>
+        </div>
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-faint">Utilization</p>
+          <p className="font-mono text-xs text-ink-dim">
+            Average: {Object.values(result.avg_utilization).map((value) => `${Math.round(value * 100)}%`).join(' · ')}
+          </p>
+          <p className="mt-1 font-mono text-xs text-ink-dim">
+            Peak: {Object.values(result.peak_utilization).map((value) => `${Math.round(value * 100)}%`).join(' · ')}
+          </p>
+        </div>
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-faint">Warnings</p>
+          {result.warnings.length === 0 ? (
+            <p className="text-xs text-ink-faint">None</p>
+          ) : (
+            <ul className="list-disc space-y-1 pl-4 text-xs text-amber-700">
+              {result.warnings.map((warning, index) => <li key={`${index}-${warning}`}>{warning}</li>)}
+            </ul>
+          )}
+        </div>
+      </div>
+      <PolicySnapshot result={result} />
+    </details>
+  )
+}
+
+function Leaderboard({ kind }: { kind: 'same-stage' | 'final' }) {
+  const [data, setData] = useState<LeaderboardResponse | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [requestVersion, setRequestVersion] = useState(0)
+
+  useEffect(() => {
+    const controller = new AbortController()
+    setLoading(true)
+    setError(null)
+    const request = kind === 'same-stage'
+      ? getSameStageLeaderboard(controller.signal)
+      : getFinalLeaderboard(controller.signal)
+    request
+      .then(setData)
+      .catch((requestError: unknown) => {
+        if (controller.signal.aborted) return
+        setData(null)
+        setError(requestError instanceof Error ? requestError.message : 'Leaderboard is temporarily unavailable.')
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false)
+      })
+    return () => controller.abort()
+  }, [kind, requestVersion])
+
+  return (
+    <SectionCard title={`${kind === 'same-stage' ? 'Same-Stage' : 'Final'} Leaderboard`}>
+      {loading && <p className="text-sm" aria-live="polite">Loading leaderboard…</p>}
+      {!loading && error && (
+        <div>
+          <p className="text-sm text-red-800" role="alert">{error}</p>
+          <button type="button" onClick={() => setRequestVersion((value) => value + 1)} className="mt-3 text-sm font-semibold text-hud-accent">Retry</button>
+        </div>
+      )}
+      {!loading && !error && data && (
+        <>
+          {kind === 'same-stage' && data.stage === 0 && (
+            <p className="text-sm text-ink-faint">Complete Month 1 to join and view a same-stage ranking.</p>
+          )}
+          {kind === 'final' && data.current_user_eligible === false && (
+            <p className="mb-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+              You can view the final ranking, but you will join it only after completing all 12 months.
+            </p>
+          )}
+          {data.stage > 0 && data.items.length === 0 && (
+            <p className="text-sm text-ink-faint">No eligible students have completed this stage yet.</p>
+          )}
+          {data.items.length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead><tr className="border-b border-line text-left text-ink-faint">
+                  <th className="py-3 pr-4 font-medium">Rank</th>
+                  <th className="py-3 pr-4 font-medium">Nickname</th>
+                  <th className="py-3 pr-4 font-medium">Stage</th>
+                  <th className="py-3 pr-4 font-medium">Cumulative Revenue</th>
+                  <th className="py-3 pr-4 font-medium">Last Activity</th>
+                </tr></thead>
+                <tbody>{data.items.map((entry) => (
+                  <tr key={`${entry.rank}-${entry.nickname}`} className={entry.is_current_user ? 'border-b border-line bg-hud-accent/6' : 'border-b border-line'}>
+                    <td className="py-3 pr-4 font-mono">{entry.rank}</td>
+                    <td className="py-3 pr-4 font-medium">{entry.nickname}{entry.is_current_user ? ' (you)' : ''}</td>
+                    <td className="py-3 pr-4 font-mono">{entry.completed_months}/12</td>
+                    <td className="py-3 pr-4 font-mono">{formatMoney(entry.cumulative_revenue)}</td>
+                    <td className="py-3 pr-4">{entry.last_activity ? formatDate(entry.last_activity) : '—'}</td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            </div>
+          )}
+        </>
+      )}
+    </SectionCard>
+  )
+}
 
 interface Props {
-  currentUser: CurrentUser
-  submissionHistory: Submission[]
+  nickname: string
+  session: OfficialSimulationSession
 }
 
-export default function LeaderboardPage({ currentUser, submissionHistory }: Props) {
-  const hasSubmissions = submissionHistory.length > 0
-
-  // submissionHistory is prepended-newest-first by App.tsx.
-  const latestSubmission = hasSubmissions ? submissionHistory[0] : null
-  const bestSubmission = hasSubmissions
-    ? submissionHistory.reduce((best, s) => (s.total_revenue > best.total_revenue ? s : best))
-    : null
-
-  const totalSubmissions = submissionHistory.length
-  const avgRevenue = hasSubmissions
-    ? submissionHistory.reduce((sum, s) => sum + s.total_revenue, 0) / totalSubmissions
-    : 0
-
-  const bestVip = bestSubmission?.by_type.find((t) => t.type === 'VIP') ?? null
-  const currentUserVipRate =
-    bestVip && bestVip.total_requests > 0 ? bestVip.completed_requests / bestVip.total_requests : null
-
-  const leaderboardRows = [
-    ...MOCK_CLASSMATES.map((c) => ({ ...c, isCurrentUser: false })),
-    {
-      anonymousName: `${currentUser.anonymousName} (you)`,
-      bestRunRevenue: bestSubmission?.total_revenue ?? 0,
-      monthsCompleted: bestSubmission?.monthly.length ?? 0,
-      vipCompletionRate: currentUserVipRate,
-      lastSubmission: latestSubmission?.timestamp ?? currentUser.createdAt,
-      isCurrentUser: true,
-    },
-  ].sort((a, b) => b.bestRunRevenue - a.bestRunRevenue)
-
-  const pastSubmissionRows: MockSubmissionRow[] = hasSubmissions
-    ? submissionHistory.map((s) => ({
-        id: s.id,
-        timestamp: s.timestamp,
-        total_revenue: s.total_revenue,
-        warningsCount: s.warnings.length,
-      }))
-    : MOCK_PAST_SUBMISSIONS
+export default function LeaderboardPage({ nickname, session }: Props) {
+  const [view, setView] = useState<HistoryView>('history')
+  const results = [...session.monthly_results].sort((a, b) => a.month - b.month)
 
   return (
     <div className="space-y-8">
-
-      {/* ── Hero ───────────────────────────────────────────────────────── */}
       <div className="rounded-xl border border-line bg-gradient-to-br from-white via-white to-hud-accent/6 p-8 shadow-card">
-        <div className="flex items-center gap-2 mb-5">
-          <span className="text-xs font-mono px-2.5 py-1 rounded-full border border-line-strong text-ink-faint tracking-widest uppercase">
-            04  History
-          </span>
-        </div>
-        <h1 className="text-2xl font-bold text-ink tracking-tight mb-3">
-          Your History &amp; the Class Leaderboard
-        </h1>
-        <p className="text-ink-dim leading-relaxed max-w-3xl">
-          A prototype personal record: an anonymous identifier generated for this browser, your
-          saved simulation runs, and how your best run compares to a few sample classmates. This is
-          a local-only Phase 1 preview — see the chat response for what a real account/leaderboard
-          system would still need.
+        <span className="mb-5 inline-block rounded-full border border-line-strong px-2.5 py-1 font-mono text-xs uppercase tracking-widest text-ink-faint">
+          04 History
+        </span>
+        <h1 className="mb-3 text-2xl font-bold tracking-tight text-ink">Official Simulation History</h1>
+        <p className="max-w-3xl text-sm leading-relaxed text-ink-dim">
+          <strong>{nickname}</strong>, these results are restored from your official course session.
+          Each completed month is saved automatically.
         </p>
       </div>
 
-      {/* ── Current Student + Personal Performance ───────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-        <SectionCard title="Local Prototype Profile" label="Local only">
-          <div className="space-y-3">
-            <div>
-              <div className="text-xs text-ink-faint mb-1">Anonymous Name</div>
-              <div className="font-mono text-hud-accent font-semibold text-sm">{currentUser.anonymousName}</div>
-            </div>
-            <div>
-              <div className="text-xs text-ink-faint mb-1">Local Browser ID</div>
-              <div className="font-mono text-ink-faint text-xs">{currentUser.userId}</div>
-            </div>
-            <div>
-              <div className="text-xs text-ink-faint mb-1">Account Created</div>
-              <div className="font-mono text-ink-dim text-xs">{formatDate(currentUser.createdAt)}</div>
-            </div>
-          </div>
-        </SectionCard>
+      <div className="flex flex-wrap gap-2" role="tablist" aria-label="History and leaderboard views">
+        {([
+          ['history', 'Simulation History'],
+          ['same-stage', 'Same-Stage Leaderboard'],
+          ['final', 'Final Leaderboard'],
+        ] as const).map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={view === key}
+            onClick={() => setView(key)}
+            className={`rounded border px-4 py-2 text-xs font-semibold transition-colors ${
+              view === key
+                ? 'border-hud-accent bg-hud-accent/8 text-hud-accent'
+                : 'border-line-strong bg-white text-ink-faint hover:text-ink'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
 
-        <SectionCard title="Personal Performance Summary" label="Stats">
-          {hasSubmissions ? (
-            <div className="grid grid-cols-2 gap-3">
-              <StatTile label="Saved Runs" value={String(totalSubmissions)} />
-              <StatTile label="Best Run Revenue" value={formatMoney(bestSubmission!.total_revenue)} accent />
-              <StatTile label="Average Revenue" value={formatMoney(avgRevenue)} />
-              <StatTile
-                label="Latest Save"
-                value={latestSubmission ? formatDate(latestSubmission.timestamp) : '—'}
-              />
-            </div>
-          ) : (
-            <p className="text-ink-faint text-xs leading-relaxed">
-              No saved runs yet. Go to <strong className="text-ink-dim">03 Simulation</strong>, run
-              your policy, and click <strong className="text-ink-dim">Save to My History</strong> to
-              start building your record.
+      {view === 'same-stage' && <Leaderboard kind="same-stage" />}
+      {view === 'final' && <Leaderboard kind="final" />}
+
+      {view === 'history' && (
+        <SectionCard title={`Persisted monthly results — ${session.completed_months}/12 complete`}>
+          {results.length === 0 ? (
+            <p className="text-sm text-ink-faint">
+              No official months have been completed yet. Run Month 1 on Page 03 to begin.
             </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-line text-left text-ink-faint">
+                    <th className="py-2 pr-4 font-medium">Month</th>
+                    <th className="py-2 pr-4 font-medium">Completed at</th>
+                    <th className="py-2 pr-4 font-medium">Revenue</th>
+                    <th className="py-2 pr-4 font-medium">Requests</th>
+                    <th className="py-2 pr-4 font-medium">Admitted</th>
+                    <th className="py-2 pr-4 font-medium">Rejected</th>
+                    <th className="py-2 pr-4 font-medium">Completed</th>
+                    <th className="py-2 pr-4 font-medium">Unfinished</th>
+                    <th className="py-2 pr-4 font-medium">Warnings</th>
+                    <th className="py-2 pr-4 font-medium">Policy</th>
+                  </tr>
+                </thead>
+                <tbody className="font-mono text-ink-dim">
+                  {results.map((result, index) => {
+                    const changed = index > 0 && results[index - 1].policy_hash !== result.policy_hash
+                    return (
+                      <tr key={result.month} className="border-b border-line align-top">
+                        <td className="py-3 pr-4">{result.month}</td>
+                        <td className="whitespace-nowrap py-3 pr-4 font-sans">{formatDate(result.completed_at)}</td>
+                        <td className="py-3 pr-4 text-ink">{formatMoney(result.total_revenue)}</td>
+                        <td className="py-3 pr-4">{result.total_requests}</td>
+                        <td className="py-3 pr-4">{result.admitted_requests}</td>
+                        <td className="py-3 pr-4">{result.rejected_requests}</td>
+                        <td className="py-3 pr-4">{result.completed_requests}</td>
+                        <td className="py-3 pr-4">{result.unfinished_requests}</td>
+                        <td className="py-3 pr-4">{result.warnings.length}</td>
+                        <td className="whitespace-nowrap py-3 pr-4 font-sans">
+                          {index === 0 ? 'Initial policy' : changed ? 'Changed' : 'Unchanged'}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+              <div>
+                {results.map((result) => <MonthDetails key={result.month} result={result} />)}
+              </div>
+            </div>
           )}
         </SectionCard>
-      </div>
-
-      {/* ── Monthly Results ───────────────────────────────────────────────── */}
-      <SectionCard title="Monthly Results — Latest Saved Run" label="01">
-        {latestSubmission ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="text-left text-ink-faint border-b border-line">
-                  <th className="py-2 pr-4 font-medium">Month</th>
-                  <th className="py-2 pr-4 font-medium">Requests</th>
-                  <th className="py-2 pr-4 font-medium">Admitted</th>
-                  <th className="py-2 pr-4 font-medium">Completed</th>
-                  <th className="py-2 pr-4 font-medium">Rejected</th>
-                  <th className="py-2 pr-4 font-medium">Revenue</th>
-                </tr>
-              </thead>
-              <tbody className="font-mono text-ink-dim">
-                {latestSubmission.monthly.map((m) => (
-                  <tr key={m.month} className="border-b border-line">
-                    <td className="py-2 pr-4">{m.month}</td>
-                    <td className="py-2 pr-4">{m.total_requests}</td>
-                    <td className="py-2 pr-4">{m.admitted_requests}</td>
-                    <td className="py-2 pr-4">{m.completed_requests}</td>
-                    <td className="py-2 pr-4">{m.rejected_requests}</td>
-                    <td className="py-2 pr-4 text-ink">{formatMoney(m.total_revenue)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p className="text-ink-faint text-xs leading-relaxed">
-            No saved runs yet — this table will populate once you save a simulation from Page 3.
-          </p>
-        )}
-      </SectionCard>
-
-      {/* ── Past Submissions ──────────────────────────────────────────────── */}
-      <SectionCard title="Past Submissions" label="02">
-        {!hasSubmissions && <SampleDataBanner />}
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="text-left text-ink-faint border-b border-line">
-                <th className="py-2 pr-4 font-medium">Saved</th>
-                <th className="py-2 pr-4 font-medium">Total Revenue</th>
-                <th className="py-2 pr-4 font-medium">Warnings</th>
-              </tr>
-            </thead>
-            <tbody className="font-mono text-ink-dim">
-              {pastSubmissionRows.map((s) => (
-                <tr key={s.id} className="border-b border-line">
-                  <td className="py-2 pr-4">{formatDate(s.timestamp)}</td>
-                  <td className="py-2 pr-4 text-ink">{formatMoney(s.total_revenue)}</td>
-                  <td className="py-2 pr-4">{s.warningsCount}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </SectionCard>
-
-      {/* ── Anonymous Leaderboard ─────────────────────────────────────────── */}
-      <SectionCard title="Anonymous Leaderboard" label="03">
-        <p className="text-ink-faint text-xs leading-relaxed mb-4">
-          Ranked by best single-run revenue. Classmate rows are sample data for this prototype —
-          there is no shared backend yet, so only your own row reflects real saved runs.
-        </p>
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="text-left text-ink-faint border-b border-line">
-                <th className="py-2 pr-4 font-medium">Rank</th>
-                <th className="py-2 pr-4 font-medium">Student</th>
-                <th className="py-2 pr-4 font-medium">Best Run Revenue</th>
-                <th className="py-2 pr-4 font-medium">Months Completed</th>
-                <th className="py-2 pr-4 font-medium">VIP Completion</th>
-                <th className="py-2 pr-4 font-medium">Last Submission</th>
-              </tr>
-            </thead>
-            <tbody className="font-mono text-ink-dim">
-              {leaderboardRows.map((row, i) => (
-                <tr
-                  key={row.anonymousName}
-                  className={`border-b border-line ${row.isCurrentUser ? 'bg-hud-accent/6 text-ink' : ''}`}
-                >
-                  <td className="py-2 pr-4">{i + 1}</td>
-                  <td className={`py-2 pr-4 ${row.isCurrentUser ? 'text-hud-accent font-semibold' : ''}`}>
-                    {row.anonymousName}
-                  </td>
-                  <td className="py-2 pr-4">{formatMoney(row.bestRunRevenue)}</td>
-                  <td className="py-2 pr-4">{row.monthsCompleted}</td>
-                  <td className="py-2 pr-4">
-                    {row.vipCompletionRate === null ? '—' : `${Math.round(row.vipCompletionRate * 100)}%`}
-                  </td>
-                  <td className="py-2 pr-4">{formatDate(row.lastSubmission)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </SectionCard>
-
+      )}
     </div>
   )
 }

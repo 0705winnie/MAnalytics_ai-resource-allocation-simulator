@@ -1,10 +1,9 @@
 import type {
-  MonthDetailResult,
-  SimulateMonthRequest,
-  SimulateRequest,
-  SimulationResponse,
-  SubmitResultRequest,
-  SubmitResultResponse,
+  LeaderboardResponse,
+  OfficialSimulationSession,
+  RunNextMonthRequest,
+  RunNextMonthResponse,
+  StructuredApiErrorDetail,
 } from '../types/simulation'
 
 export interface ChatMessage {
@@ -36,6 +35,18 @@ export interface AssistantResponse {
 // decide whether "is the backend running?" is actually relevant advice.
 export class NetworkError extends Error {}
 
+export class OfficialSimulationApiError extends Error {
+  readonly status: number
+  readonly code: string | null
+
+  constructor(status: number, message: string, code: string | null = null) {
+    super(message)
+    this.name = 'OfficialSimulationApiError'
+    this.status = status
+    this.code = code
+  }
+}
+
 async function postJSON<T>(url: string, body: unknown): Promise<T> {
   let res: Response
   try {
@@ -62,41 +73,76 @@ export function postChat(req: AssistantRequest): Promise<AssistantResponse> {
   return postJSON('/api/ai-assistant', req)
 }
 
-export function postSimulate(req: SimulateRequest): Promise<SimulationResponse> {
-  return postJSON('/api/simulate', req)
+function structuredDetail(value: unknown): StructuredApiErrorDetail | null {
+  if (!value || typeof value !== 'object') return null
+  const detail = value as Record<string, unknown>
+  if (typeof detail.code !== 'string' || typeof detail.message !== 'string') return null
+  return {
+    code: detail.code,
+    message: detail.message,
+    context: detail.context && typeof detail.context === 'object'
+      ? detail.context as Record<string, unknown>
+      : undefined,
+  }
 }
 
-export function postSimulateMonth(req: SimulateMonthRequest): Promise<MonthDetailResult> {
-  return postJSON('/api/simulate/month', req)
+function safeOfficialErrorMessage(status: number): string {
+  if (status === 401) return 'Your sign-in session has expired. Please sign in again.'
+  if (status === 403) return 'This account cannot run a student simulation.'
+  if (status === 422) return 'The simulation request could not be validated.'
+  return 'Official simulation state is temporarily unavailable. Please try again.'
 }
 
-// A separate, authenticated flow from postSimulate/postSimulateMonth above:
-// this is the only call in this file that sends the student's session
-// cookie, since submitting a result (unlike running a simulation) must be
-// tied to the authenticated student's enrollment.
-async function postJSONAuthenticated<T>(url: string, body: unknown): Promise<T> {
+async function officialRequest<T>(
+  url: string,
+  init: RequestInit,
+): Promise<T> {
   let res: Response
   try {
     res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify(body),
+      ...init,
     })
   } catch (err) {
     throw new NetworkError(err instanceof Error ? err.message : 'Network request failed')
   }
   if (!res.ok) {
     const parsed = await res.json().catch(() => null)
-    const detail = (parsed as { detail?: string } | null)?.detail
-    if (detail === undefined) {
-      throw new NetworkError(`The backend did not respond as expected (HTTP ${res.status}).`)
+    const rawDetail = parsed && typeof parsed === 'object'
+      ? (parsed as Record<string, unknown>).detail
+      : undefined
+    const detail = structuredDetail(rawDetail)
+    if (detail) {
+      throw new OfficialSimulationApiError(res.status, detail.message, detail.code)
     }
-    throw new Error(detail)
+    if (typeof rawDetail === 'string' && (res.status === 400 || res.status === 409)) {
+      throw new OfficialSimulationApiError(res.status, rawDetail)
+    }
+    throw new OfficialSimulationApiError(res.status, safeOfficialErrorMessage(res.status))
   }
   return res.json() as Promise<T>
 }
 
-export function postSubmitResult(req: SubmitResultRequest): Promise<SubmitResultResponse> {
-  return postJSONAuthenticated('/api/submissions', req)
+export function getOfficialSimulationSession(
+  signal?: AbortSignal,
+): Promise<OfficialSimulationSession> {
+  return officialRequest('/api/simulation/session', { method: 'GET', signal })
+}
+
+export function postRunNextMonth(
+  request: RunNextMonthRequest,
+): Promise<RunNextMonthResponse> {
+  return officialRequest('/api/simulation/session/months/next', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+  })
+}
+
+export function getSameStageLeaderboard(signal?: AbortSignal): Promise<LeaderboardResponse> {
+  return officialRequest('/api/leaderboards/same-stage', { method: 'GET', signal })
+}
+
+export function getFinalLeaderboard(signal?: AbortSignal): Promise<LeaderboardResponse> {
+  return officialRequest('/api/leaderboards/final', { method: 'GET', signal })
 }

@@ -4,41 +4,24 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Sequence
+from typing import Literal
 
 from pydantic import BaseModel
 
-from app.models import Enrollment, Submission
+from app.models.enums import EnrollmentStatus
 
 
 class StudentProgressResponse(BaseModel):
     enrollment_id: uuid.UUID
     berkeley_username: str
     nickname: str | None
-    submission_count: int
-    latest_result_revenue: float | None
-    latest_submitted_at: datetime | None
-    best_result_revenue: float | None
-
-    @classmethod
-    def from_enrollment(
-        cls,
-        enrollment: Enrollment,
-        submissions: Sequence[Submission],
-    ) -> StudentProgressResponse:
-        # `submissions` is expected pre-sorted oldest-first, so the last
-        # entry is the latest submission.
-        latest = submissions[-1] if submissions else None
-        best = max(submissions, key=lambda s: s.total_revenue) if submissions else None
-        return cls(
-            enrollment_id=enrollment.id,
-            berkeley_username=enrollment.user.berkeley_username,
-            nickname=enrollment.nickname,
-            submission_count=len(submissions),
-            latest_result_revenue=latest.total_revenue if latest else None,
-            latest_submitted_at=latest.submitted_at if latest else None,
-            best_result_revenue=best.total_revenue if best else None,
-        )
+    enrollment_status: EnrollmentStatus
+    user_is_active: bool
+    completed_months: int
+    cumulative_revenue: float
+    last_activity: datetime | None
+    simulation_status: Literal["not_started", "in_progress", "completed"]
+    warnings_count: int
 
 
 class StudentProgressListResponse(BaseModel):

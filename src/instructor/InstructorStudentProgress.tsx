@@ -13,8 +13,7 @@ function formatTimestamp(value: string | null): string {
   }).format(new Date(value))
 }
 
-function formatRevenue(value: number | null): string {
-  if (value === null) return '—'
+function formatRevenue(value: number): string {
   return `$${Math.round(value).toLocaleString()}`
 }
 
@@ -124,10 +123,11 @@ export default function InstructorStudentProgress({
                 <thead>
                   <tr className="border-b border-line text-left text-ink-faint">
                     <th className="px-5 py-3 font-medium">Student</th>
-                    <th className="px-5 py-3 font-medium">Submissions</th>
-                    <th className="px-5 py-3 font-medium">Latest Result</th>
-                    <th className="px-5 py-3 font-medium">Best Result</th>
-                    <th className="px-5 py-3 font-medium">Last Submitted</th>
+                    <th className="px-5 py-3 font-medium">Status</th>
+                    <th className="px-5 py-3 font-medium">Progress</th>
+                    <th className="px-5 py-3 font-medium">Cumulative Revenue</th>
+                    <th className="px-5 py-3 font-medium">Warnings</th>
+                    <th className="px-5 py-3 font-medium">Last Activity</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -142,18 +142,23 @@ export default function InstructorStudentProgress({
                           <div className="text-xs text-ink-faint">{student.nickname}</div>
                         )}
                       </td>
-                      <td className="px-5 py-3 font-mono">{student.submission_count}</td>
-                      <td className="px-5 py-3 font-mono">
-                        {student.submission_count === 0
-                          ? 'No submissions yet'
-                          : formatRevenue(student.latest_result_revenue)}
-                      </td>
-                      <td className="px-5 py-3 font-mono">
-                        {formatRevenue(student.best_result_revenue)}
-                      </td>
                       <td className="px-5 py-3">
-                        {formatTimestamp(student.latest_submitted_at)}
+                        <div className="capitalize">{student.enrollment_status}</div>
+                        {!student.user_is_active && (
+                          <div className="text-xs text-red-700">Account inactive</div>
+                        )}
                       </td>
+                      <td className="px-5 py-3 font-mono">
+                        {student.completed_months}/12
+                        <div className="font-sans text-xs capitalize text-ink-faint">
+                          {student.simulation_status.replace('_', ' ')}
+                        </div>
+                      </td>
+                      <td className="px-5 py-3 font-mono">
+                        {formatRevenue(student.cumulative_revenue)}
+                      </td>
+                      <td className="px-5 py-3 font-mono">{student.warnings_count}</td>
+                      <td className="px-5 py-3">{formatTimestamp(student.last_activity)}</td>
                     </tr>
                   ))}
                 </tbody>

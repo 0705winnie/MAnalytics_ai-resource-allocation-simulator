@@ -18,7 +18,7 @@ from app.core.auth import ACCESS_COOKIE_NAME, create_access_token
 from app.core.config import AuthSettings, get_auth_settings
 from app.db.session import get_db
 from app.main import create_app
-from app.models import CourseInstance, Enrollment, User
+from app.models import CourseInstance, Enrollment, SimulationSession, User
 from app.models.enums import EnrollmentStatus, UserRole
 from app.routers import instructor_roster
 from app.services.activation_codes import ACTIVATION_CODE_TTL, verify_activation_code
@@ -47,6 +47,7 @@ def _clear_account_tables(
     assert test_database_url.database is not None
     assert test_database_url.database.endswith("_test")
     with session_factory() as session:
+        session.execute(delete(SimulationSession))
         session.execute(delete(Enrollment))
         session.execute(delete(CourseInstance))
         session.execute(delete(User))
@@ -212,6 +213,9 @@ def test_import_creates_student_pending_enrollment_and_verifiable_one_time_code(
         assert code.replace("-", "") not in enrollment.activation_code_hash
         assert verify_activation_code(enrollment, code)
         assert enrollment.activation_expires_at is not None
+        assert enrollment.simulation_session is not None
+        assert enrollment.simulation_session.completed_months == 0
+        assert enrollment.simulation_session.last_completed_at is None
         expires_at = enrollment.activation_expires_at.astimezone(UTC)
         assert before + ACTIVATION_CODE_TTL <= expires_at
         assert expires_at <= datetime.now(UTC) + ACTIVATION_CODE_TTL
@@ -263,6 +267,12 @@ def test_existing_active_student_can_join_multiple_courses(
         assert session.scalar(
             select(func.count())
             .select_from(Enrollment)
+            .where(Enrollment.user_id == student.id)
+        ) == 2
+        assert session.scalar(
+            select(func.count())
+            .select_from(SimulationSession)
+            .join(Enrollment)
             .where(Enrollment.user_id == student.id)
         ) == 2
 
@@ -402,6 +412,7 @@ def test_invalid_csv_structures_are_rejected_safely(
     assert expected_detail in response.json()["detail"]
     with roster_session_factory() as session:
         assert session.scalar(select(func.count()).select_from(Enrollment)) == 0
+        assert session.scalar(select(func.count()).select_from(SimulationSession)) == 0
 
 
 def test_file_and_row_limits_are_enforced(
@@ -547,6 +558,7 @@ def test_integrity_error_rolls_back_and_returns_no_generated_code(
             .where(User.berkeley_username == "rollback-student")
         ) == 0
         assert session.scalar(select(func.count()).select_from(Enrollment)) == 0
+        assert session.scalar(select(func.count()).select_from(SimulationSession)) == 0
 
 
 def test_render_failure_rolls_back_without_returning_generated_secret(
@@ -586,6 +598,7 @@ def test_render_failure_rolls_back_without_returning_generated_secret(
             .where(User.berkeley_username == "render-rollback-student")
         ) == 0
         assert session.scalar(select(func.count()).select_from(Enrollment)) == 0
+        assert session.scalar(select(func.count()).select_from(SimulationSession)) == 0
 
 
 def test_success_response_is_rendered_before_commit_and_returned_after_commit(
@@ -630,6 +643,8 @@ def test_success_response_is_rendered_before_commit_and_returned_after_commit(
             )
         )
         assert enrollment is not None
+        assert enrollment.simulation_session is not None
+        assert enrollment.simulation_session.completed_months == 0
 
 
 def test_response_is_non_cacheable_attachment_and_spreadsheet_safe(

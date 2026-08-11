@@ -2,13 +2,20 @@ import uuid
 
 import pytest
 from alembic import command
-from sqlalchemy import DateTime, Engine, Enum, Uuid, delete
+from sqlalchemy import DateTime, Engine, Enum, Numeric, Uuid, delete
 from sqlalchemy.engine import URL
 from sqlalchemy.exc import DataError, IntegrityError
 from sqlalchemy.orm import Session
 
 from app.db.base import Base
-from app.models import CourseInstance, Enrollment, User
+from app.models import (
+    CourseInstance,
+    Enrollment,
+    MonthlyResult,
+    SimulationSession,
+    Submission,
+    User,
+)
 from app.models.enums import EnrollmentStatus, UserRole
 
 
@@ -46,12 +53,56 @@ EXPECTED_COLUMNS = {
         "created_at",
         "updated_at",
     },
+    "submissions": {
+        "id",
+        "enrollment_id",
+        "total_revenue",
+        "total_unfinished_requests",
+        "total_unfinished_value",
+        "warnings_count",
+        "months_completed",
+        "submitted_at",
+    },
+    "simulation_sessions": {
+        "id",
+        "enrollment_id",
+        "completed_months",
+        "created_at",
+        "updated_at",
+        "last_completed_at",
+    },
+    "monthly_results": {
+        "id",
+        "session_id",
+        "month",
+        "idempotency_key",
+        "policy_code",
+        "policy_params",
+        "policy_hash",
+        "total_requests",
+        "admitted_requests",
+        "completed_requests",
+        "rejected_requests",
+        "total_revenue",
+        "unfinished_requests",
+        "unfinished_value",
+        "avg_utilization",
+        "peak_utilization",
+        "remaining_capacity",
+        "by_type",
+        "warnings",
+        "benchmark_comparison",
+        "completed_at",
+    },
 }
 
 
 def _clear_account_tables(session: Session, test_database_url: URL) -> None:
     assert test_database_url.database is not None
     assert test_database_url.database.endswith("_test")
+    session.execute(delete(MonthlyResult))
+    session.execute(delete(SimulationSession))
+    session.execute(delete(Submission))
     session.execute(delete(Enrollment))
     session.execute(delete(CourseInstance))
     session.execute(delete(User))
@@ -106,6 +157,9 @@ def test_required_and_nullable_columns():
     users = Base.metadata.tables["users"].c
     courses = Base.metadata.tables["course_instances"].c
     enrollments = Base.metadata.tables["enrollments"].c
+    submissions = Base.metadata.tables["submissions"].c
+    simulation_sessions = Base.metadata.tables["simulation_sessions"].c
+    monthly_results = Base.metadata.tables["monthly_results"].c
 
     assert users.berkeley_username.nullable is False
     assert users.password_hash.nullable is True
@@ -126,25 +180,46 @@ def test_required_and_nullable_columns():
     ):
         assert enrollments[name].nullable is True
     assert enrollments.status.nullable is False
+    assert submissions.months_completed.nullable is False
+    assert simulation_sessions.enrollment_id.nullable is False
+    assert simulation_sessions.completed_months.nullable is False
+    assert simulation_sessions.last_completed_at.nullable is True
+    assert all(column.nullable is False for column in monthly_results)
 
 
-def test_enum_columns_are_validated_varchars_with_defaults():
-    role = Base.metadata.tables["users"].c.role
-    status = Base.metadata.tables["enrollments"].c.status
+def test_simulation_money_columns_use_exact_two_decimal_numeric_type():
+    monthly_results = Base.metadata.tables["monthly_results"].c
+
+    for name in ("total_revenue", "unfinished_value"):
+        column_type = monthly_results[name].type
+        assert isinstance(column_type, Numeric)
+        assert column_type.precision == 18
+        assert column_type.scale == 2
+
+
+def test_enum_columns_use_explicit_check_constraints_and_defaults():
+    users = Base.metadata.tables["users"]
+    enrollments = Base.metadata.tables["enrollments"]
+    role = users.c.role
+    status = enrollments.c.status
 
     assert isinstance(role.type, Enum)
     assert role.type.native_enum is False
-    assert role.type.create_constraint is True
+    assert role.type.create_constraint is False
     assert role.type.validate_strings is True
     assert role.type.enums == ["student", "instructor"]
     assert str(role.server_default.arg) == UserRole.STUDENT.value
+    assert "user_role" in {constraint.name for constraint in users.constraints}
 
     assert isinstance(status.type, Enum)
     assert status.type.native_enum is False
-    assert status.type.create_constraint is True
+    assert status.type.create_constraint is False
     assert status.type.validate_strings is True
     assert status.type.enums == ["pending", "active", "disabled"]
     assert str(status.server_default.arg) == EnrollmentStatus.PENDING.value
+    assert "enrollment_status" in {
+        constraint.name for constraint in enrollments.constraints
+    }
 
 
 def test_timestamp_columns_are_timezone_aware_and_server_defaulted():
@@ -157,6 +232,13 @@ def test_timestamp_columns_are_timezone_aware_and_server_defaulted():
             "created_at",
             "updated_at",
         ),
+        "submissions": ("submitted_at",),
+        "simulation_sessions": (
+            "created_at",
+            "updated_at",
+            "last_completed_at",
+        ),
+        "monthly_results": ("completed_at",),
     }
 
     for table_name, column_names in timestamp_columns.items():
@@ -165,22 +247,30 @@ def test_timestamp_columns_are_timezone_aware_and_server_defaulted():
             column = columns[column_name]
             assert isinstance(column.type, DateTime)
             assert column.type.timezone is True
-            if column_name in {"created_at", "updated_at"}:
+            if column_name in {"created_at", "updated_at", "submitted_at", "completed_at"}:
                 assert column.server_default is not None
 
 
 def test_foreign_keys_use_restrict_and_relationships_have_no_delete_cascade():
     courses = Base.metadata.tables["course_instances"].c
     enrollments = Base.metadata.tables["enrollments"].c
+    submissions = Base.metadata.tables["submissions"].c
+    simulation_sessions = Base.metadata.tables["simulation_sessions"].c
+    monthly_results = Base.metadata.tables["monthly_results"].c
 
     assert next(iter(courses.created_by.foreign_keys)).ondelete == "RESTRICT"
     assert next(iter(enrollments.course_id.foreign_keys)).ondelete == "RESTRICT"
     assert next(iter(enrollments.user_id.foreign_keys)).ondelete == "RESTRICT"
+    assert next(iter(submissions.enrollment_id.foreign_keys)).ondelete == "RESTRICT"
+    assert next(iter(simulation_sessions.enrollment_id.foreign_keys)).ondelete == "RESTRICT"
+    assert next(iter(monthly_results.session_id.foreign_keys)).ondelete == "RESTRICT"
 
     for relationship in (
         User.created_courses.property,
         User.enrollments.property,
         CourseInstance.enrollments.property,
+        Enrollment.simulation_session.property,
+        SimulationSession.monthly_results.property,
     ):
         assert "delete" not in relationship.cascade
         assert "delete-orphan" not in relationship.cascade

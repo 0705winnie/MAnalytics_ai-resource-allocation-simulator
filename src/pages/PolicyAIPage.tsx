@@ -1,6 +1,6 @@
 ﻿import { useState, useRef, useEffect, type ReactNode } from 'react'
 import { NetworkError, postChat, type ChatMessage } from '../lib/api'
-import type { MonthDetailResult, PolicyParams } from '../types/simulation'
+import type { OfficialSimulationSession, PolicyParams } from '../types/simulation'
 import type { Page } from '../components/NavBar'
 
 const MONTH_LABELS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
@@ -236,7 +236,7 @@ interface Props {
   provider: 'azure' | 'mock' | undefined
   onProviderChange: (provider: 'azure' | 'mock' | undefined) => void
   onNavigate: (page: Page) => void
-  completedMonths: MonthDetailResult[]
+  session: OfficialSimulationSession
 }
 
 export default function PolicyAIPage({
@@ -249,7 +249,7 @@ export default function PolicyAIPage({
   provider,
   onProviderChange,
   onNavigate,
-  completedMonths,
+  session,
 }: Props) {
   const [input,   setInput]   = useState('')
   const [loading, setLoading] = useState(false)
@@ -266,7 +266,8 @@ export default function PolicyAIPage({
   const hasReturn    = policyCode.includes('return ')
   const isValid      = hasSignature && hasReturn
 
-  const nextMonth = completedMonths.length < TOTAL_MONTHS ? completedMonths.length + 1 : null
+  const completedMonths = session.monthly_results
+  const nextMonth = session.next_month
   const latestMonth = completedMonths.length > 0 ? completedMonths[completedMonths.length - 1] : null
 
   async function sendMessage(text: string) {
@@ -302,7 +303,7 @@ export default function PolicyAIPage({
 
   function shareCode() {
     setInput(
-      `Here is my current policy code - can you review it and suggest improvements?\n\n\`\`\`python\n${policyCode}\n\`\`\``, 
+      `Here is my current policy code - can you review it and suggest improvements?\n\n\`\`\`python\n${policyCode}\n\`\`\``,
     )
   }
 
@@ -339,8 +340,8 @@ export default function PolicyAIPage({
               </span>
             ) : (
               <span className="text-ink-dim text-xs">
-                <strong className="text-hud-positive">All 12 months complete.</strong> Revise your policy and
-                reset the session on <strong className="text-ink-dim">03 Simulation</strong> to try again.
+                <strong className="text-hud-positive">All 12 months complete.</strong> Review the official
+                persisted results on <strong className="text-ink-dim">03 Simulation</strong> or Page 04.
               </span>
             )}
           </div>

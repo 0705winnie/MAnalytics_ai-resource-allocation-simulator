@@ -253,7 +253,7 @@ export default function InstructorRosterImportPage() {
           <CourseSectionNavigation
             activeSection="roster"
             onSectionChange={(section) => {
-              if (section === 'progress') {
+              if (section !== 'roster') {
                 navigate(`/instructor/courses/${encodeURIComponent(courseId)}`)
               }
             }}

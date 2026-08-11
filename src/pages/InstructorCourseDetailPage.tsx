@@ -13,6 +13,7 @@ import InstructorBreadcrumbs, {
 } from '../instructor/InstructorBreadcrumbs'
 import InstructorRosterManagement from '../instructor/InstructorRosterManagement'
 import InstructorStudentProgress from '../instructor/InstructorStudentProgress'
+import InstructorLeaderboards from '../instructor/InstructorLeaderboards'
 import type { InstructorCourse } from '../instructor/types'
 
 export default function InstructorCourseDetailPage() {
@@ -158,6 +159,10 @@ export default function InstructorCourseDetailPage() {
 
           {activeSection === 'progress' && (
             <InstructorStudentProgress course={visibleCourse} />
+          )}
+
+          {activeSection === 'leaderboards' && (
+            <InstructorLeaderboards course={visibleCourse} />
           )}
         </>
       )}

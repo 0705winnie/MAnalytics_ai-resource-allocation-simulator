@@ -1,19 +1,18 @@
-import { useState, type ReactNode } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer, Cell,
 } from 'recharts'
-import { NetworkError, postSimulateMonth, postSubmitResult } from '../lib/api'
-import { createSubmission } from '../lib/storage'
+import {
+  NetworkError,
+  postRunNextMonth,
+} from '../lib/api'
 import type {
   BenchmarkResult,
-  MonthDetailResult,
+  OfficialSimulationSession,
   PolicyParams,
-  SimulationMonthResult,
-  SimulationResponse,
-  SimulationTypeResult,
+  RunNextMonthRequest,
 } from '../types/simulation'
-import type { Submission } from '../types/user'
 import type { Page } from '../components/NavBar'
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -56,98 +55,26 @@ function formatCurrencyExact(value: number): string {
   return `$${value.toLocaleString()}`
 }
 
-// Strips a MonthDetailResult down to the plain SimulationMonthResult shape
-// (drops by_type/warnings/remaining_capacity, which the annual charts don't
-// need and which SimulationResponse.monthly never carried).
-function toMonthlySummary(m: MonthDetailResult): SimulationMonthResult {
-  return {
-    month: m.month,
-    total_requests: m.total_requests,
-    admitted_requests: m.admitted_requests,
-    completed_requests: m.completed_requests,
-    rejected_requests: m.rejected_requests,
-    total_revenue: m.total_revenue,
-    unfinished_requests: m.unfinished_requests,
-    unfinished_value: m.unfinished_value,
-    avg_utilization: m.avg_utilization,
-    peak_utilization: m.peak_utilization,
-  }
+function newIdempotencyKey(): string {
+  return crypto.randomUUID()
 }
 
-// Builds the same shape /simulate used to return in one shot, but from
-// accumulated /simulate/month results — this is what feeds the annual
-// charts and "Save to My History" (Submission extends SimulationResponse,
-// and Page 4 reads it unmodified regardless of whether the session is
-// partial or all 12 months are done).
-function aggregateMonths(months: MonthDetailResult[]): SimulationResponse {
-  const typeTotals = new Map<string, SimulationTypeResult>()
-  for (const m of months) {
-    for (const t of m.by_type) {
-      const existing = typeTotals.get(t.type)
-      typeTotals.set(t.type, {
-        type: t.type,
-        total_requests: (existing?.total_requests ?? 0) + t.total_requests,
-        admitted_requests: (existing?.admitted_requests ?? 0) + t.admitted_requests,
-        completed_requests: (existing?.completed_requests ?? 0) + t.completed_requests,
-        total_revenue: (existing?.total_revenue ?? 0) + t.total_revenue,
-      })
-    }
-  }
-
-  return {
-    monthly: months.map(toMonthlySummary),
-    by_type: Array.from(typeTotals.values()),
-    total_revenue: months.reduce((s, m) => s + m.total_revenue, 0),
-    total_unfinished_requests: months.reduce((s, m) => s + m.unfinished_requests, 0),
-    total_unfinished_value: months.reduce((s, m) => s + m.unfinished_value, 0),
-    warnings: months.flatMap((m) => m.warnings),
-    benchmark_comparison: aggregateBenchmarkComparison(months),
-  }
+function isOfficialApiError(
+  error: unknown,
+): error is { status: number; code: string | null; message: string } {
+  if (!error || typeof error !== 'object') return false
+  const candidate = error as Record<string, unknown>
+  return typeof candidate.status === 'number'
+    && (typeof candidate.code === 'string' || candidate.code === null)
+    && typeof candidate.message === 'string'
 }
 
-function aggregateBenchmarkComparison(months: MonthDetailResult[]): BenchmarkResult[] {
-  const totals = new Map<string, BenchmarkResult>()
-
-  for (const month of months) {
-    for (const row of month.benchmark_comparison ?? []) {
-      const existing = totals.get(row.policy)
-      totals.set(row.policy, {
-        policy: row.policy,
-        total_revenue: (existing?.total_revenue ?? 0) + row.total_revenue,
-        total_unfinished_requests: (existing?.total_unfinished_requests ?? 0) + row.total_unfinished_requests,
-        total_unfinished_value: (existing?.total_unfinished_value ?? 0) + row.total_unfinished_value,
-        admitted_requests: (existing?.admitted_requests ?? 0) + row.admitted_requests,
-        completed_requests: (existing?.completed_requests ?? 0) + row.completed_requests,
-        rejected_requests: (existing?.rejected_requests ?? 0) + row.rejected_requests,
-        warnings_count: (existing?.warnings_count ?? 0) + row.warnings_count,
-      })
-    }
+function errorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message
+  if (error && typeof error === 'object' && typeof (error as Record<string, unknown>).message === 'string') {
+    return (error as { message: string }).message
   }
-
-  return Array.from(totals.values())
-}
-
-// Minimal runtime shape check on top of the TS type (which is erased at
-// runtime) — guards against a malformed/truncated response before the UI
-// trusts it as this month's result.
-function isValidMonthDetailResult(value: unknown): value is MonthDetailResult {
-  if (!value || typeof value !== 'object') return false
-  const v = value as Record<string, unknown>
-  return (
-    typeof v.month === 'number' &&
-    typeof v.total_requests === 'number' &&
-    typeof v.admitted_requests === 'number' &&
-    typeof v.rejected_requests === 'number' &&
-    typeof v.completed_requests === 'number' &&
-    typeof v.total_revenue === 'number' &&
-    typeof v.unfinished_requests === 'number' &&
-    Array.isArray(v.warnings) &&
-    Array.isArray(v.benchmark_comparison) &&
-    Array.isArray(v.by_type) &&
-    typeof v.avg_utilization === 'object' &&
-    typeof v.peak_utilization === 'object' &&
-    typeof v.remaining_capacity === 'object'
-  )
+  return 'Simulation failed'
 }
 
 // ── Sub-components ───────────────────────────────────────────────────────────
@@ -299,97 +226,102 @@ function MonthStepper({
 interface Props {
   policyCode: string
   policyParams: PolicyParams
-  completedMonths: MonthDetailResult[]
-  onMonthCompleted: (result: MonthDetailResult) => void
-  onSaveSubmission: (submission: Submission) => void
+  session: OfficialSimulationSession
+  onSessionChange: (session: OfficialSimulationSession) => void
+  onRestoreSession: () => Promise<OfficialSimulationSession>
   onNavigate: (page: Page) => void
 }
 
 export default function SimulationPage({
   policyCode,
   policyParams,
-  completedMonths,
-  onMonthCompleted,
-  onSaveSubmission,
+  session,
+  onSessionChange,
+  onRestoreSession,
   onNavigate,
 }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [errorIsNetwork, setErrorIsNetwork] = useState(false)
-  const [justSaved, setJustSaved] = useState(false)
+  const [notice, setNotice] = useState<string | null>(null)
   const [highlightedMonth, setHighlightedMonth] = useState<number | null>(null)
-  const [submitting, setSubmitting] = useState(false)
-  const [submitError, setSubmitError] = useState<string | null>(null)
-  const [justSubmitted, setJustSubmitted] = useState(false)
+  const [pendingRetry, setPendingRetry] = useState<RunNextMonthRequest | null>(null)
+  const runningRef = useRef(false)
 
   const hasSignature = policyCode.includes('def admission_policy(')
   const paramEntries = Object.entries(policyParams)
-
-  const nextMonth = completedMonths.length < TOTAL_MONTHS ? completedMonths.length + 1 : null
-  const sessionComplete = nextMonth === null
+  const completedMonths = session.monthly_results
+  const nextMonth = session.next_month
+  const sessionComplete = session.status === 'completed'
   const latestMonth = completedMonths.length > 0 ? completedMonths[completedMonths.length - 1] : null
   const shownMonth = highlightedMonth !== null
     ? (completedMonths.find((m) => m.month === highlightedMonth) ?? latestMonth)
     : latestMonth
 
   async function runMonth() {
-    // Guards against duplicate/overlapping run attempts and against ever
-    // requesting anything but the next sequential month.
-    if (loading || nextMonth === null || !hasSignature) return
+    if (runningRef.current || nextMonth === null || !hasSignature) return
 
+    const request = pendingRetry ?? {
+      expected_month: nextMonth,
+      idempotency_key: newIdempotencyKey(),
+      policy_code: policyCode,
+      params: { ...policyParams },
+    }
+
+    runningRef.current = true
     setLoading(true)
     setError(null)
     setErrorIsNetwork(false)
+    setNotice(null)
     try {
-      const res = await postSimulateMonth({
-        month: nextMonth,
-        policy_code: policyCode,
-        params: policyParams,
-        previous_months: completedMonths,
-      })
-
-      if (!isValidMonthDetailResult(res) || res.month !== nextMonth) {
-        throw new Error('The simulator returned an unexpected response. Please try again.')
+      const response = await postRunNextMonth(request)
+      setPendingRetry(null)
+      onSessionChange(response.session)
+      setHighlightedMonth(response.executed_month)
+      setNotice(
+        response.replayed
+          ? `Month ${response.executed_month} was already saved. Official state has been restored.`
+          : `Month ${response.executed_month} completed and was saved to official history.`,
+      )
+    } catch (err) {
+      if (isOfficialApiError(err) && err.status === 409) {
+        setPendingRetry(null)
+        if (err.code === 'wrong_expected_month' || err.code === 'session_completed') {
+          try {
+            const restored = await onRestoreSession()
+            onSessionChange(restored)
+            setNotice(
+              err.code === 'session_completed'
+                ? 'This simulation is complete. Official state has been refreshed.'
+                : 'Another request changed the session. Official state has been refreshed; no additional month was run.',
+            )
+          } catch (restoreError) {
+            setError(
+              restoreError instanceof Error
+                ? restoreError.message
+                : 'The session changed and could not be refreshed.',
+            )
+          }
+          return
+        }
+        if (err.code === 'idempotency_key_conflict') {
+          setError('This run identifier was already used with different inputs. Start a new Run Month action.')
+          return
+        }
       }
 
-      onMonthCompleted(res)
-      setHighlightedMonth(res.month)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Simulation failed')
+      const uncertain = err instanceof NetworkError
+        || (isOfficialApiError(err) && err.status >= 500)
+      setPendingRetry(uncertain ? request : null)
+      setError(errorMessage(err))
       setErrorIsNetwork(err instanceof NetworkError)
     } finally {
+      runningRef.current = false
       setLoading(false)
     }
   }
 
-  function saveToHistory() {
-    if (completedMonths.length === 0) return
-    onSaveSubmission(createSubmission(policyCode, policyParams, aggregateMonths(completedMonths)))
-    setJustSaved(true)
-    setTimeout(() => setJustSaved(false), 2000)
-  }
-
-  async function submitResult() {
-    if (completedMonths.length === 0 || submitting) return
-    setSubmitting(true)
-    setSubmitError(null)
-    try {
-      // The server independently recomputes this result from policy_code +
-      // params (same inputs already used to produce completedMonths) rather
-      // than trusting any client-supplied numbers — see backend/app/routers
-      // /submissions.py. This is separate from Save to My History above,
-      // which only ever writes to this browser's local storage.
-      await postSubmitResult({ policy_code: policyCode, params: policyParams })
-      setJustSubmitted(true)
-      setTimeout(() => setJustSubmitted(false), 2000)
-    } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : 'Submission failed')
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  const aggregated = completedMonths.length > 0 ? aggregateMonths(completedMonths) : null
+  const aggregated = completedMonths.length > 0 ? session.cumulative : null
 
   const revenueData = completedMonths.map((m) => ({ month: m.month, Revenue: m.total_revenue }))
 
@@ -490,7 +422,7 @@ export default function SimulationPage({
               Revise Policy
             </button>
             <button
-              onClick={runMonth}
+              onClick={() => void runMonth()}
               disabled={loading || sessionComplete || !hasSignature}
               className="rounded border border-hud-gold bg-hud-gold px-5 py-2 text-xs font-semibold text-ink hover:bg-hud-gold-hover hover:border-hud-gold-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-hud-gold/70 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
@@ -498,7 +430,9 @@ export default function SimulationPage({
                 ? 'Running…'
                 : sessionComplete
                   ? 'All 12 Months Complete'
-                  : `Run Month ${nextMonth} (${MONTH_LABELS[nextMonth! - 1]})`}
+                  : pendingRetry
+                    ? `Retry Month ${pendingRetry.expected_month}`
+                    : `Run Month ${nextMonth} (${MONTH_LABELS[nextMonth! - 1]})`}
             </button>
           </div>
         </div>
@@ -518,6 +452,16 @@ export default function SimulationPage({
               </>
             )}
           </div>
+        )}
+        {pendingRetry && !loading && (
+          <p className="mt-2 text-xs text-ink-faint">
+            The prior outcome is uncertain. Retry uses the same run identifier and the same policy snapshot.
+          </p>
+        )}
+        {notice && (
+          <p className="mt-3 rounded border border-hud-positive/30 bg-hud-positive/7 px-3 py-2.5 text-xs text-hud-positive" role="status">
+            {notice}
+          </p>
         )}
       </SectionCard>
 
@@ -541,8 +485,8 @@ export default function SimulationPage({
             All 12 months finished — total revenue ${aggregated.total_revenue.toLocaleString()}
           </h3>
           <p className="text-ink-faint text-sm max-w-2xl">
-            Save this run to your personal history on <strong className="text-ink-dim">04 History</strong>,
-            or reset the session below to try a different policy from Month 1.
+            Every month is already saved in official history. Review the persisted record on{' '}
+            <strong className="text-ink-dim">04 History</strong>.
           </p>
         </div>
       )}
@@ -656,36 +600,9 @@ export default function SimulationPage({
             <span className="h-px flex-1 bg-chip" />
           </div>
 
-          <div className="flex items-center justify-between gap-4">
-            <p className="text-ink-faint text-xs">
-              Save this run to your personal history on <strong className="text-ink-dim">04 History</strong>.
-            </p>
-            <button
-              onClick={saveToHistory}
-              className="shrink-0 rounded border border-hud-positive/30 bg-hud-positive/7 px-4 py-1.5 text-xs font-medium text-hud-positive hover:bg-hud-positive/14 focus:outline-none focus-visible:ring-2 focus-visible:ring-hud-positive/60 transition-colors"
-            >
-              {justSaved ? 'Saved ✓' : 'Save to My History'}
-            </button>
-          </div>
-
-          <div className="flex items-center justify-between gap-4">
-            <p className="text-ink-faint text-xs">
-              Submit this result to your instructor for course credit.
-            </p>
-            <button
-              onClick={() => void submitResult()}
-              disabled={submitting}
-              className="shrink-0 rounded border border-hud-accent/30 bg-hud-accent/7 px-4 py-1.5 text-xs font-medium text-hud-accent hover:bg-hud-accent/14 focus:outline-none focus-visible:ring-2 focus-visible:ring-hud-accent/60 transition-colors disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {submitting ? 'Submitting…' : justSubmitted ? 'Submitted ✓' : 'Submit Result'}
-            </button>
-          </div>
-
-          {submitError && (
-            <p className="text-xs text-red-700" role="alert">
-              {submitError}
-            </p>
-          )}
+          <p className="text-ink-faint text-xs">
+            Official months are saved automatically and appear on <strong className="text-ink-dim">04 History</strong>.
+          </p>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             <StatTile
@@ -695,15 +612,15 @@ export default function SimulationPage({
             />
             <StatTile
               label="Total Requests"
-              value={aggregated.monthly.reduce((s, m) => s + m.total_requests, 0).toLocaleString()}
+              value={aggregated.total_requests.toLocaleString()}
             />
             <StatTile
               label="Admitted"
-              value={aggregated.monthly.reduce((s, m) => s + m.admitted_requests, 0).toLocaleString()}
+              value={aggregated.admitted_requests.toLocaleString()}
             />
             <StatTile
               label="Completed"
-              value={aggregated.monthly.reduce((s, m) => s + m.completed_requests, 0).toLocaleString()}
+              value={aggregated.completed_requests.toLocaleString()}
             />
             <StatTile
               label="Unfinished"

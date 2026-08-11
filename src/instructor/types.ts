@@ -72,10 +72,28 @@ export interface StudentProgress {
   enrollment_id: string
   berkeley_username: string
   nickname: string | null
-  submission_count: number
-  latest_result_revenue: number | null
-  latest_submitted_at: string | null
-  best_result_revenue: number | null
+  enrollment_status: InstructorEnrollmentStatus
+  user_is_active: boolean
+  completed_months: number
+  cumulative_revenue: number
+  last_activity: string | null
+  simulation_status: 'not_started' | 'in_progress' | 'completed'
+  warnings_count: number
+}
+
+export interface InstructorLeaderboardEntry {
+  rank: number
+  nickname: string
+  completed_months: number
+  cumulative_revenue: number
+  last_activity: string | null
+  is_current_user: boolean
+}
+
+export interface InstructorLeaderboardResponse {
+  stage: number
+  current_user_eligible: boolean | null
+  items: InstructorLeaderboardEntry[]
 }
 
 export interface StudentProgressListResponse {
