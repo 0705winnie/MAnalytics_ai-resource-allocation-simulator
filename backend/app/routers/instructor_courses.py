@@ -6,15 +6,16 @@ import uuid
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import func, select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.core.auth import require_instructor
 from app.db.session import get_db
 from app.models import CourseInstance, User
+from app.services.course_deletions import remove_owned_course
 
 
 router = APIRouter(prefix="/instructor/courses", tags=["Instructor Courses"])
@@ -146,3 +147,35 @@ def get_course(
             detail=COURSE_NOT_FOUND_MESSAGE,
         )
     return course
+
+
+@router.delete("/{course_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_course(
+    course_id: uuid.UUID,
+    db: Annotated[Session, Depends(get_db)],
+    instructor: Annotated[User, Depends(require_instructor)],
+) -> Response:
+    """Delete an owned course's scoped data while retaining global users."""
+
+    try:
+        removed = remove_owned_course(
+            db,
+            course_id=course_id,
+            instructor_id=instructor.id,
+        )
+        if not removed:
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=COURSE_NOT_FOUND_MESSAGE,
+            )
+        db.commit()
+    except HTTPException:
+        raise
+    except SQLAlchemyError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="The course could not be deleted",
+        ) from None
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

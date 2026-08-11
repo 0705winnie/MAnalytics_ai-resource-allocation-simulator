@@ -13,7 +13,7 @@ from sqlalchemy.exc import IntegrityError
 from tests.conftest import validate_test_database_url
 
 
-HEAD_REVISION = "0004_simulation_persistence"
+HEAD_REVISION = "0005_llm_daily_usage"
 EXPECTED_TABLES = {
     "users",
     "course_instances",
@@ -21,6 +21,7 @@ EXPECTED_TABLES = {
     "submissions",
     "simulation_sessions",
     "monthly_results",
+    "llm_daily_usage",
 }
 
 

@@ -1,5 +1,12 @@
 ﻿import { useState, useRef, useEffect, type ReactNode } from 'react'
-import { NetworkError, postChat, type ChatMessage } from '../lib/api'
+import {
+  AIQuotaError,
+  NetworkError,
+  getAIUsage,
+  postChat,
+  type AssistantUsage,
+  type ChatMessage,
+} from '../lib/api'
 import type { OfficialSimulationSession, PolicyParams } from '../types/simulation'
 import type { Page } from '../components/NavBar'
 
@@ -255,12 +262,27 @@ export default function PolicyAIPage({
   const [loading, setLoading] = useState(false)
   const [error,   setError]   = useState<string | null>(null)
   const [errorIsNetwork, setErrorIsNetwork] = useState(false)
+  const [usage, setUsage] = useState<AssistantUsage | null>(null)
+  const [quotaExhausted, setQuotaExhausted] = useState(false)
 
   const chatEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, loading])
+
+  useEffect(() => {
+    const controller = new AbortController()
+    getAIUsage(controller.signal)
+      .then((nextUsage) => {
+        setUsage(nextUsage)
+        setQuotaExhausted(
+          nextUsage.metered && nextUsage.calls_used >= nextUsage.calls_limit,
+        )
+      })
+      .catch(() => undefined)
+    return () => controller.abort()
+  }, [])
 
   const hasSignature = policyCode.includes('def admission_policy(')
   const hasReturn    = policyCode.includes('return ')
@@ -272,7 +294,7 @@ export default function PolicyAIPage({
 
   async function sendMessage(text: string) {
     const trimmed = text.trim()
-    if (!trimmed || loading) return
+    if (!trimmed || loading || quotaExhausted) return
 
     const userMsg: ChatMessage = { role: 'user', content: trimmed }
     const priorHistory = messages
@@ -286,8 +308,17 @@ export default function PolicyAIPage({
       const res = await postChat({ message: trimmed, history: priorHistory })
       onMessagesChange([...priorHistory, userMsg, { role: 'assistant', content: res.content }])
       onProviderChange(res.provider)
+      setUsage(res.usage)
+      setQuotaExhausted(
+        res.usage.metered && res.usage.calls_used >= res.usage.calls_limit,
+      )
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Request failed')
+      if (err instanceof AIQuotaError) {
+        setQuotaExhausted(true)
+        setError('Daily AI assistant limit reached. Your allowance resets tomorrow.')
+      } else {
+        setError(err instanceof Error ? err.message : 'Request failed')
+      }
       setErrorIsNetwork(err instanceof NetworkError)
     } finally {
       setLoading(false)
@@ -479,6 +510,13 @@ export default function PolicyAIPage({
               <p className="text-ink-faintest text-xs mt-0.5">
                 Ask about your policy, data patterns, or trade-offs.
               </p>
+              {usage && (
+                <p className="mt-1 text-xs font-medium text-ink-dim">
+                  {usage.metered
+                    ? `${usage.calls_used} / ${usage.calls_limit} requests used today`
+                    : 'Local mock responses do not use the paid daily allowance'}
+                </p>
+              )}
             </div>
             <ProviderBadge provider={provider} />
           </div>
@@ -495,7 +533,7 @@ export default function PolicyAIPage({
                     <button
                       key={p}
                       onClick={() => sendMessage(p)}
-                      disabled={loading}
+                      disabled={loading || quotaExhausted}
                       className="w-full text-left text-xs text-ink-faint border border-line rounded px-3 py-2.5 hover:border-line-strong hover:text-ink-dim disabled:opacity-40 transition-colors"
                     >
                       {p}
@@ -571,6 +609,11 @@ export default function PolicyAIPage({
 
           {/* Input */}
           <div className="px-4 pb-4 pt-3 border-t border-line shrink-0">
+            {quotaExhausted && (
+              <p className="mb-3 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900">
+                Daily AI assistant limit reached. Your allowance resets tomorrow.
+              </p>
+            )}
             <div className="flex gap-2 items-end">
               <textarea
                 rows={2}
@@ -579,11 +622,11 @@ export default function PolicyAIPage({
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                disabled={loading}
+                disabled={loading || quotaExhausted}
               />
               <button
                 onClick={() => sendMessage(input)}
-                disabled={loading || !input.trim()}
+                disabled={loading || quotaExhausted || !input.trim()}
                 className="rounded border border-hud-accent/30 bg-hud-accent/8 px-4 py-2 text-xs font-medium text-hud-accent hover:bg-hud-accent/12 focus:outline-none focus-visible:ring-2 focus-visible:ring-hud-accent/60 disabled:opacity-30 disabled:cursor-not-allowed transition-colors shrink-0 self-end"
               >
                 Send

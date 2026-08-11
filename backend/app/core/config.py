@@ -1,12 +1,14 @@
 """Typed application settings loaded from environment variables."""
 
 from functools import lru_cache
+from decimal import Decimal
 from pathlib import Path
 from urllib.parse import urlparse
 
 from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import make_url
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -95,6 +97,35 @@ class AuthSettings(BaseSettings):
         return origin
 
 
+class LLMQuotaSettings(BaseSettings):
+    """Non-secret paid-model guardrails and centralized pricing assumptions."""
+
+    model_config = SettingsConfigDict(
+        env_file=PROJECT_ROOT / ".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    max_llm_calls_per_day: int = Field(default=50, ge=1)
+    max_llm_input_tokens_per_day: int = Field(default=100_000, ge=1)
+    max_llm_output_tokens_per_call: int = Field(default=500, ge=1)
+    max_llm_estimated_cost_per_day: Decimal = Field(default=Decimal("0.25"), gt=0)
+    llm_usage_timezone: str = "America/Los_Angeles"
+    # Conservative defaults match the documented gpt-4.1-mini deployment in
+    # .env.example. Override centrally if the Azure deployment uses another model.
+    llm_input_cost_per_million_tokens: Decimal = Field(default=Decimal("0.40"), ge=0)
+    llm_output_cost_per_million_tokens: Decimal = Field(default=Decimal("1.60"), ge=0)
+
+    @field_validator("llm_usage_timezone")
+    @classmethod
+    def require_timezone(cls, value: str) -> str:
+        try:
+            ZoneInfo(value)
+        except ZoneInfoNotFoundError as exc:
+            raise ValueError("LLM_USAGE_TIMEZONE must be an IANA timezone") from exc
+        return value
+
+
 @lru_cache
 def get_database_settings() -> DatabaseSettings:
     """Return one validated settings object per application process."""
@@ -113,3 +144,8 @@ def get_auth_settings() -> AuthSettings:
     """Return authentication settings without exposing secret values."""
 
     return AuthSettings()
+
+
+@lru_cache
+def get_llm_quota_settings() -> LLMQuotaSettings:
+    return LLMQuotaSettings()

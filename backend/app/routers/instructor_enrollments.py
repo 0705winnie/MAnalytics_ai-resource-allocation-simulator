@@ -28,6 +28,7 @@ from app.services.instructor_enrollments import (
     reset_enrollment_nickname,
     set_enrollment_enabled,
 )
+from app.services.course_deletions import remove_owned_enrollment
 
 
 router = APIRouter(prefix="/instructor/courses", tags=["Instructor Enrollments"])
@@ -247,4 +248,38 @@ def delete_enrollment_nickname(
 
     reset_enrollment_nickname(enrollment)
     _commit_enrollment_change(db)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.delete(
+    "/{course_id}/enrollments/{enrollment_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_enrollment_from_course(
+    course_id: uuid.UUID,
+    enrollment_id: uuid.UUID,
+    db: Annotated[Session, Depends(get_db)],
+    instructor: Annotated[User, Depends(require_instructor)],
+) -> Response:
+    """Permanently remove exactly one enrollment, never its global user."""
+
+    try:
+        removed = remove_owned_enrollment(
+            db,
+            course_id=course_id,
+            enrollment_id=enrollment_id,
+            instructor_id=instructor.id,
+        )
+        if not removed:
+            db.rollback()
+            raise _not_found()
+        db.commit()
+    except HTTPException:
+        raise
+    except SQLAlchemyError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="The enrollment could not be removed",
+        ) from None
     return Response(status_code=status.HTTP_204_NO_CONTENT)

@@ -15,6 +15,7 @@ from app.models.enums import UserRole
 if TYPE_CHECKING:
     from app.models.course_instance import CourseInstance
     from app.models.enrollment import Enrollment
+    from app.models.llm_daily_usage import LLMDailyUsage
 
 
 class User(Base):
@@ -80,5 +81,8 @@ class User(Base):
         back_populates="creator",
     )
     enrollments: Mapped[list[Enrollment]] = relationship(
+        back_populates="user",
+    )
+    llm_daily_usage: Mapped[list[LLMDailyUsage]] = relationship(
         back_populates="user",
     )

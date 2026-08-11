@@ -23,6 +23,20 @@ services:
         value: "true"
       - key: LLM_PROVIDER
         value: "azure"
+      - key: MAX_LLM_CALLS_PER_DAY
+        value: "50"
+      - key: MAX_LLM_INPUT_TOKENS_PER_DAY
+        value: "100000"
+      - key: MAX_LLM_OUTPUT_TOKENS_PER_CALL
+        value: "500"
+      - key: MAX_LLM_ESTIMATED_COST_PER_DAY
+        value: "0.25"
+      - key: LLM_USAGE_TIMEZONE
+        value: "America/Los_Angeles"
+      - key: LLM_INPUT_COST_PER_MILLION_TOKENS
+        value: "0.40"
+      - key: LLM_OUTPUT_COST_PER_MILLION_TOKENS
+        value: "1.60"
 
       # Values that must be entered manually in the Render dashboard.
       - key: DATABASE_URL

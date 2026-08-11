@@ -200,6 +200,34 @@ export async function createInstructorCourse(
   }
 }
 
+export async function deleteInstructorCourse(courseId: string): Promise<void> {
+  try {
+    const response = await fetch(
+      `/api/instructor/courses/${encodeURIComponent(courseId)}`,
+      { method: 'DELETE', credentials: 'include' },
+    )
+    throwForCourseResponse(response)
+  } catch (error) {
+    return unavailableUnlessAborted(error)
+  }
+}
+
+export async function removeInstructorEnrollment(
+  courseId: string,
+  enrollmentId: string,
+): Promise<void> {
+  try {
+    const response = await fetch(
+      `/api/instructor/courses/${encodeURIComponent(courseId)}`
+      + `/enrollments/${encodeURIComponent(enrollmentId)}`,
+      { method: 'DELETE', credentials: 'include' },
+    )
+    throwForCourseResponse(response)
+  } catch (error) {
+    return unavailableUnlessAborted(error)
+  }
+}
+
 export const MAX_ROSTER_FILE_BYTES = 1024 * 1024
 const MAX_ROSTER_ROWS = 1000
 const MAX_ROSTER_RESPONSE_BYTES = 2 * 1024 * 1024
@@ -696,7 +724,7 @@ function parseInstructorLeaderboard(value: unknown): InstructorLeaderboardRespon
       || typeof item.nickname !== 'string'
       || item.nickname.length === 0
       || !Number.isInteger(item.completed_months)
-      || item.completed_months !== value.stage
+      || (item.completed_months as number) < (value.stage as number)
       || typeof item.cumulative_revenue !== 'number'
       || (item.last_activity !== null && (typeof item.last_activity !== 'string' || !isIsoTimestamp(item.last_activity)))
       || typeof item.is_current_user !== 'boolean'

@@ -97,8 +97,8 @@ export default function InstructorLeaderboards({ course }: { course: InstructorC
               <thead><tr className="border-b border-line text-left text-ink-faint">
                 <th className="px-4 py-3 font-medium">Rank</th>
                 <th className="px-4 py-3 font-medium">Nickname</th>
-                <th className="px-4 py-3 font-medium">Stage</th>
-                <th className="px-4 py-3 font-medium">Cumulative Revenue</th>
+                <th className="px-4 py-3 font-medium">Current Progress</th>
+                <th className="px-4 py-3 font-medium">Revenue through Stage {data.stage}</th>
                 <th className="px-4 py-3 font-medium">Last Activity</th>
               </tr></thead>
               <tbody>{data.items.map((entry) => (

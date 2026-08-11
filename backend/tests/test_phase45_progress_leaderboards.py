@@ -130,3 +130,71 @@ def test_progress_and_rankings_share_official_monthly_results(test_engine):
             assert by_nickname["Player 3"].simulation_status == "not_started"
     finally:
         _clear(factory)
+
+
+def test_same_stage_uses_historical_months_and_includes_students_beyond_stage(test_engine):
+    factory = sessionmaker(bind=test_engine, expire_on_commit=False)
+    _clear(factory)
+    try:
+        with factory() as db:
+            instructor = User(berkeley_username="historical-instructor", role=UserRole.INSTRUCTOR)
+            students = [
+                User(
+                    berkeley_username=f"historical-student-{index}",
+                    is_active=index != 5,
+                )
+                for index in range(7)
+            ]
+            db.add_all([instructor, *students])
+            db.flush()
+            course = CourseInstance(
+                course_code="HISTORICAL",
+                course_name="Historical Stage",
+                semester="Test",
+                created_by=instructor.id,
+            )
+            other_course = CourseInstance(
+                course_code="HISTORICAL-OTHER",
+                course_name="Other Course",
+                semester="Test",
+                created_by=instructor.id,
+            )
+            db.add_all([course, other_course])
+            db.flush()
+            enrollments = []
+            stages = [4, 4, 8, 12, 3, 8, 8]
+            for index, student in enumerate(students):
+                enrollment = Enrollment(
+                    course_id=other_course.id if index == 6 else course.id,
+                    user_id=student.id,
+                    nickname=f"Historical {index}",
+                    status=EnrollmentStatus.ACTIVE,
+                )
+                db.add(enrollment)
+                enrollments.append(enrollment)
+            db.flush()
+            first_four = [25, 25, 50, 40, 1000, 1000, 1000]
+            for index, (enrollment, completed_months) in enumerate(zip(enrollments, stages, strict=True)):
+                session = SimulationSession(
+                    enrollment_id=enrollment.id,
+                    completed_months=completed_months,
+                )
+                db.add(session)
+                db.flush()
+                for month in range(1, completed_months + 1):
+                    revenue = first_four[index] if month <= 4 else 50_000
+                    db.add(_monthly_result(session.id, month, revenue))
+            db.commit()
+
+            ranked = ranked_course_stage(db, course_id=course.id, stage=4)
+            assert [
+                (row.rank, row.nickname, row.completed_months, row.cumulative_revenue)
+                for row in ranked
+            ] == [
+                (1, "Historical 2", 8, 200.0),
+                (2, "Historical 3", 12, 160.0),
+                (3, "Historical 0", 4, 100.0),
+                (3, "Historical 1", 4, 100.0),
+            ]
+    finally:
+        _clear(factory)

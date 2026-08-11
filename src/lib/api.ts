@@ -24,6 +24,14 @@ export interface AssistantRequest {
 export interface AssistantResponse {
   content: string
   provider: 'azure' | 'mock'
+  usage: AssistantUsage
+}
+
+export interface AssistantUsage {
+  calls_used: number
+  calls_limit: number
+  resets_at: string
+  metered: boolean
 }
 
 // Thrown when the backend itself never actually handled the request — the
@@ -34,6 +42,18 @@ export interface AssistantResponse {
 // `{detail: ...}` (bad policy code, validation, etc). The UI uses this to
 // decide whether "is the backend running?" is actually relevant advice.
 export class NetworkError extends Error {}
+
+export class AIQuotaError extends Error {
+  readonly limitType: 'calls' | 'input_tokens' | 'estimated_cost'
+  readonly resetsAt: string
+
+  constructor(limitType: AIQuotaError['limitType'], resetsAt: string) {
+    super('Daily AI assistant limit reached. Your allowance resets tomorrow.')
+    this.name = 'AIQuotaError'
+    this.limitType = limitType
+    this.resetsAt = resetsAt
+  }
+}
 
 export class OfficialSimulationApiError extends Error {
   readonly status: number
@@ -47,30 +67,50 @@ export class OfficialSimulationApiError extends Error {
   }
 }
 
-async function postJSON<T>(url: string, body: unknown): Promise<T> {
+async function assistantRequest<T>(url: string, init: RequestInit): Promise<T> {
   let res: Response
   try {
     res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+      credentials: 'include',
+      ...init,
     })
   } catch (err) {
     throw new NetworkError(err instanceof Error ? err.message : 'Network request failed')
   }
   if (!res.ok) {
     const parsed = await res.json().catch(() => null)
-    const detail = (parsed as { detail?: string } | null)?.detail
+    const detail = (parsed as { detail?: unknown } | null)?.detail
+    if (res.status === 429 && detail && typeof detail === 'object') {
+      const quota = detail as Record<string, unknown>
+      if (
+        quota.code === 'daily_ai_limit_reached'
+        && ['calls', 'input_tokens', 'estimated_cost'].includes(String(quota.limit_type))
+        && typeof quota.resets_at === 'string'
+      ) {
+        throw new AIQuotaError(
+          quota.limit_type as AIQuotaError['limitType'],
+          quota.resets_at,
+        )
+      }
+    }
     if (detail === undefined) {
       throw new NetworkError(`The backend did not respond as expected (HTTP ${res.status}).`)
     }
-    throw new Error(detail)
+    throw new Error(typeof detail === 'string' ? detail : 'AI Assistant is temporarily unavailable.')
   }
   return res.json() as Promise<T>
 }
 
 export function postChat(req: AssistantRequest): Promise<AssistantResponse> {
-  return postJSON('/api/ai-assistant', req)
+  return assistantRequest('/api/ai-assistant', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(req),
+  })
+}
+
+export function getAIUsage(signal?: AbortSignal): Promise<AssistantUsage> {
+  return assistantRequest('/api/ai-assistant/usage', { method: 'GET', signal })
 }
 
 function structuredDetail(value: unknown): StructuredApiErrorDetail | null {

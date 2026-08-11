@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
 import CourseSectionNavigation, {
   type CourseSection,
 } from '../instructor/CourseSectionNavigation'
 import {
   getInstructorCourse,
+  deleteInstructorCourse,
   InstructorCourseApiError,
 } from '../instructor/api'
 import InstructorBreadcrumbs, {
@@ -18,6 +19,7 @@ import type { InstructorCourse } from '../instructor/types'
 
 export default function InstructorCourseDetailPage() {
   const { courseId = '' } = useParams()
+  const navigate = useNavigate()
   const { refreshAuth } = useAuth()
   const [course, setCourse] = useState<InstructorCourse | null>(null)
   const [loading, setLoading] = useState(true)
@@ -25,6 +27,10 @@ export default function InstructorCourseDetailPage() {
   const [requestVersion, setRequestVersion] = useState(0)
   const [rosterNavigationLocked, setRosterNavigationLocked] = useState(false)
   const [activeSection, setActiveSection] = useState<CourseSection>('roster')
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false)
+  const [deleteConfirmation, setDeleteConfirmation] = useState('')
+  const [deletingCourse, setDeletingCourse] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   const retry = useCallback(() => {
     setRequestVersion((current) => current + 1)
@@ -71,6 +77,30 @@ export default function InstructorCourseDetailPage() {
   }, [courseId, refreshAuth, requestVersion])
 
   const visibleCourse = course?.id === courseId ? course : null
+
+  async function confirmCourseDeletion() {
+    if (!visibleCourse || deleteConfirmation !== 'DELETE' || deletingCourse) return
+    setDeletingCourse(true)
+    setDeleteError(null)
+    try {
+      await deleteInstructorCourse(visibleCourse.id)
+      navigate('/instructor/courses', { replace: true })
+    } catch (requestError) {
+      if (
+        requestError instanceof InstructorCourseApiError
+        && requestError.code === 'unauthorized'
+      ) {
+        await refreshAuth()
+      }
+      setDeleteError(
+        requestError instanceof InstructorCourseApiError
+        && requestError.code === 'not_found'
+          ? 'Course not found.'
+          : 'The course could not be deleted.',
+      )
+      setDeletingCourse(false)
+    }
+  }
 
   return (
     <main className="mx-auto w-full max-w-6xl px-6 py-10 sm:px-10">
@@ -147,7 +177,7 @@ export default function InstructorCourseDetailPage() {
           <CourseSectionNavigation
             activeSection={activeSection}
             onSectionChange={setActiveSection}
-            navigationDisabled={rosterNavigationLocked}
+            navigationDisabled={rosterNavigationLocked || deletingCourse}
           />
 
           {activeSection === 'roster' && (
@@ -164,6 +194,66 @@ export default function InstructorCourseDetailPage() {
           {activeSection === 'leaderboards' && (
             <InstructorLeaderboards course={visibleCourse} />
           )}
+
+          <section className="mt-10 rounded-xl border border-red-200 bg-red-50 p-6">
+            <h2 className="text-lg font-semibold text-red-950">Danger Zone</h2>
+            <p className="mt-2 text-sm leading-6 text-red-900">
+              Delete this course only if it was created by mistake. This action cannot be undone.
+            </p>
+            {!showDeleteConfirmation ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDeleteConfirmation(true)
+                  setDeleteConfirmation('')
+                  setDeleteError(null)
+                }}
+                disabled={rosterNavigationLocked}
+                className="mt-4 rounded-md border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100 disabled:opacity-60"
+              >
+                Delete Course…
+              </button>
+            ) : (
+              <div className="mt-4 rounded-md border border-red-300 bg-white p-5">
+                <p className="font-semibold text-red-950">
+                  Delete {visibleCourse.course_code} {visibleCourse.semester}?
+                </p>
+                <p className="mt-2 text-sm leading-6 text-red-900">
+                  This permanently deletes this course, all course enrollments, all simulation progress, and all monthly results. Student user accounts will NOT be deleted.
+                </p>
+                <label htmlFor="delete-course-confirmation" className="mt-4 block text-sm font-medium text-red-950">
+                  Type DELETE to confirm
+                </label>
+                <input
+                  id="delete-course-confirmation"
+                  value={deleteConfirmation}
+                  onChange={(event) => setDeleteConfirmation(event.target.value)}
+                  disabled={deletingCourse}
+                  autoComplete="off"
+                  className="mt-2 w-full max-w-xs rounded-md border border-red-300 px-3 py-2 font-mono text-sm"
+                />
+                {deleteError && <p className="mt-3 text-sm text-red-800" role="alert">{deleteError}</p>}
+                <div className="mt-4 flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={() => void confirmCourseDeletion()}
+                    disabled={deleteConfirmation !== 'DELETE' || deletingCourse}
+                    className="rounded-md bg-red-700 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {deletingCourse ? 'Deleting…' : 'Delete Course'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowDeleteConfirmation(false)}
+                    disabled={deletingCourse}
+                    className="rounded-md border border-line-strong px-4 py-2 text-sm font-semibold text-ink disabled:opacity-60"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </section>
         </>
       )}
     </main>

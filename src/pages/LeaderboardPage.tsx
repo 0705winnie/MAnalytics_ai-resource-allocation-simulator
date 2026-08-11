@@ -155,8 +155,8 @@ function Leaderboard({ kind }: { kind: 'same-stage' | 'final' }) {
                 <thead><tr className="border-b border-line text-left text-ink-faint">
                   <th className="py-3 pr-4 font-medium">Rank</th>
                   <th className="py-3 pr-4 font-medium">Nickname</th>
-                  <th className="py-3 pr-4 font-medium">Stage</th>
-                  <th className="py-3 pr-4 font-medium">Cumulative Revenue</th>
+                  <th className="py-3 pr-4 font-medium">Current Progress</th>
+                  <th className="py-3 pr-4 font-medium">Revenue through Stage {data.stage}</th>
                   <th className="py-3 pr-4 font-medium">Last Activity</th>
                 </tr></thead>
                 <tbody>{data.items.map((entry) => (

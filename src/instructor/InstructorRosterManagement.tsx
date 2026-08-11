@@ -11,6 +11,7 @@ import {
   getInstructorEnrollments,
   InstructorCourseApiError,
   regenerateInstructorActivationCode,
+  removeInstructorEnrollment,
 } from './api'
 import type {
   ActivationCodeReissueResult,
@@ -62,6 +63,9 @@ export default function InstructorRosterManagement({
     string | null
   >(null)
   const [regenerating, setRegenerating] = useState(false)
+  const [removingEnrollmentId, setRemovingEnrollmentId] = useState<string | null>(null)
+  const [removalConfirmationId, setRemovalConfirmationId] = useState<string | null>(null)
+  const [removalError, setRemovalError] = useState<string | null>(null)
   const [regenerationError, setRegenerationError] = useState<string | null>(null)
   const [reissueResult, setReissueResult] = useState<
     ActivationCodeReissueResult | null
@@ -79,8 +83,8 @@ export default function InstructorRosterManagement({
   useEffect(() => revokeObjectUrls, [revokeObjectUrls])
 
   useEffect(() => {
-    onNavigationLockChange?.(regenerating)
-  }, [onNavigationLockChange, regenerating])
+    onNavigationLockChange?.(regenerating || removingEnrollmentId !== null)
+  }, [onNavigationLockChange, regenerating, removingEnrollmentId])
 
   useEffect(
     () => () => onNavigationLockChange?.(false),
@@ -93,6 +97,8 @@ export default function InstructorRosterManagement({
     setReissueDownloaded(false)
     setConfirmingEnrollmentId(null)
     setRegenerationError(null)
+    setRemovalConfirmationId(null)
+    setRemovalError(null)
     setRoster(null)
     setRosterError(null)
     setSearchInput('')
@@ -274,6 +280,36 @@ export default function InstructorRosterManagement({
     setReissueDownloaded(false)
   }
 
+  async function confirmRemoval(enrollment: InstructorEnrollment) {
+    if (removingEnrollmentId !== null) return
+    setRemovingEnrollmentId(enrollment.enrollment_id)
+    setRemovalError(null)
+    try {
+      await removeInstructorEnrollment(course.id, enrollment.enrollment_id)
+      setRemovalConfirmationId(null)
+      if (roster?.items.length === 1 && offset > 0) {
+        setOffset((current) => Math.max(0, current - PAGE_SIZE))
+      } else {
+        setRosterRequestVersion((current) => current + 1)
+      }
+    } catch (requestError) {
+      if (
+        requestError instanceof InstructorCourseApiError
+        && requestError.code === 'unauthorized'
+      ) {
+        await refreshAuth()
+      }
+      setRemovalError(
+        requestError instanceof InstructorCourseApiError
+        && requestError.code === 'not_found'
+          ? 'Course or enrollment not found.'
+          : 'The student could not be removed from this course.',
+      )
+    } finally {
+      setRemovingEnrollmentId(null)
+    }
+  }
+
   const noResultsFromFilter = (
     roster?.total === 0
     && (Boolean(appliedSearch) || activationFilter !== 'all')
@@ -360,6 +396,12 @@ export default function InstructorRosterManagement({
               role="alert"
             >
               {regenerationError}
+            </p>
+          )}
+
+          {removalError && (
+            <p className="mt-5 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800" role="alert">
+              {removalError}
             </p>
           )}
 
@@ -461,6 +503,9 @@ export default function InstructorRosterManagement({
                   const isConfirming = (
                     confirmingEnrollmentId === enrollment.enrollment_id
                   )
+                  const isConfirmingRemoval = (
+                    removalConfirmationId === enrollment.enrollment_id
+                  )
                   return (
                     <article
                       key={enrollment.enrollment_id}
@@ -543,6 +588,50 @@ export default function InstructorRosterManagement({
                               onClick={() => setConfirmingEnrollmentId(null)}
                               disabled={regenerating}
                               className="rounded-md border border-line-strong bg-white px-4 py-2 text-sm font-semibold text-ink disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {!isConfirmingRemoval && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setConfirmingEnrollmentId(null)
+                            setRemovalConfirmationId(enrollment.enrollment_id)
+                            setRemovalError(null)
+                          }}
+                          disabled={regenerating || removingEnrollmentId !== null}
+                          className="mt-5 w-full rounded-md border border-red-200 px-4 py-2.5 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                        >
+                          Remove from Course
+                        </button>
+                      )}
+
+                      {isConfirmingRemoval && (
+                        <div className="mt-5 rounded-md border border-red-200 bg-red-50 p-4">
+                          <p className="font-semibold text-red-950">
+                            Remove {enrollment.berkeley_username} from this course?
+                          </p>
+                          <p className="mt-2 text-sm leading-6 text-red-900">
+                            This permanently deletes this student&apos;s simulation progress and monthly results for this course. The student&apos;s account will not be deleted.
+                          </p>
+                          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                            <button
+                              type="button"
+                              onClick={() => void confirmRemoval(enrollment)}
+                              disabled={removingEnrollmentId !== null}
+                              className="rounded-md bg-red-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                            >
+                              {removingEnrollmentId === enrollment.enrollment_id ? 'Removing…' : 'Remove Student'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setRemovalConfirmationId(null)}
+                              disabled={removingEnrollmentId !== null}
+                              className="rounded-md border border-line-strong bg-white px-4 py-2 text-sm font-semibold text-ink disabled:opacity-60"
                             >
                               Cancel
                             </button>

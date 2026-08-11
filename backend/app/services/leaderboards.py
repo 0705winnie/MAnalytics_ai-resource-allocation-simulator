@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
 
 from app.models import Enrollment, MonthlyResult, SimulationSession, User
@@ -49,14 +49,17 @@ def ranked_course_stage(
         )
         .outerjoin(
             MonthlyResult,
-            MonthlyResult.session_id == SimulationSession.id,
+            and_(
+                MonthlyResult.session_id == SimulationSession.id,
+                MonthlyResult.month <= stage,
+            ),
         )
         .where(
             Enrollment.course_id == course_id,
             Enrollment.status == EnrollmentStatus.ACTIVE,
             User.is_active.is_(True),
             Enrollment.nickname.is_not(None),
-            SimulationSession.completed_months == stage,
+            SimulationSession.completed_months >= stage,
         )
         .group_by(
             Enrollment.id,
