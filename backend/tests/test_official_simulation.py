@@ -379,6 +379,11 @@ def test_restore_ordered_months_cumulative_and_latest_policy(
     assert body["latest_policy"]["params"] == {"threshold": 2.0}
     assert body["latest_policy"]["policy_hash"] == body["monthly_results"][1]["policy_hash"]
     assert isinstance(body["monthly_results"][0]["total_revenue"], float)
+    assert "remaining_capacity" not in body["monthly_results"][0]
+    assert all(
+        set(item) == {"type", "total_revenue"}
+        for item in body["monthly_results"][0]["by_type"]
+    )
 
 
 def test_restore_completed_twelve_month_session(client, official_session_factory):

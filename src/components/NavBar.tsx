@@ -61,7 +61,7 @@ export default function NavBar({ currentPage, onNavigate }: Props) {
         <div className="ml-auto flex min-w-0 items-center gap-3">
           <div className="min-w-0 text-right">
             <p className="truncate text-sm font-semibold text-ink">{nickname}</p>
-            <p className="truncate font-mono text-[11px] text-ink-faint">{course?.course_code}</p>
+            <p className="truncate font-mono text-[11px] text-ink-faint">{course?.course_identifier}</p>
           </div>
           <button
             type="button"

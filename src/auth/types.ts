@@ -9,6 +9,8 @@ export interface AuthenticatedUser {
 export interface AuthenticatedCourse {
   id: string
   course_code: string
+  semester: string
+  course_identifier: string
 }
 
 export interface AuthenticationResponse {
@@ -19,7 +21,7 @@ export interface AuthenticationResponse {
 }
 
 export interface StudentLoginRequest {
-  course_code: string
+  course_id: string
   berkeley_username: string
   password: string
 }
@@ -29,10 +31,8 @@ export interface InstructorLoginRequest {
   password: string
 }
 
-export type ActivationPasswordMode = 'create' | 'confirm'
-
 export interface ActivationVerifyRequest {
-  course_code: string
+  course_id: string
   berkeley_username: string
   activation_code: string
 }
@@ -40,7 +40,6 @@ export interface ActivationVerifyRequest {
 export interface ActivationVerificationResponse {
   verified: true
   expires_in_seconds: number
-  password_mode: ActivationPasswordMode
 }
 
 export interface ActivationCompleteRequest {

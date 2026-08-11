@@ -45,7 +45,7 @@ class RosterInputRow:
 @dataclass(frozen=True)
 class RosterImportRow:
     berkeley_username: str
-    course_code: str
+    course_id: str
     activation_code: str
     status: RosterImportStatus
     message: str
@@ -111,7 +111,11 @@ def import_roster(
     users_by_username = {
         user.berkeley_username: user
         for user in db.scalars(
-            select(User).where(User.berkeley_username.in_(valid_usernames))
+            select(User).where(
+                User.course_id == course.id,
+                User.role == UserRole.STUDENT,
+                User.berkeley_username.in_(valid_usernames),
+            )
         )
     }
     existing_user_ids = [user.id for user in users_by_username.values()]
@@ -136,7 +140,7 @@ def import_roster(
             results.append(
                 _result(
                     username,
-                    course.course_code,
+                    course.course_identifier,
                     RosterImportStatus.INVALID,
                     "Invalid Berkeley username",
                 )
@@ -146,7 +150,7 @@ def import_roster(
             results.append(
                 _result(
                     username,
-                    course.course_code,
+                    course.course_identifier,
                     RosterImportStatus.DUPLICATE_INPUT,
                     "Duplicate username in uploaded roster",
                 )
@@ -159,19 +163,9 @@ def import_roster(
             results.append(
                 _result(
                     username,
-                    course.course_code,
+                    course.course_identifier,
                     RosterImportStatus.USER_INACTIVE,
                     "The existing user is inactive",
-                )
-            )
-            continue
-        if user is not None and user.role == UserRole.INSTRUCTOR:
-            results.append(
-                _result(
-                    username,
-                    course.course_code,
-                    RosterImportStatus.ROLE_CONFLICT,
-                    "The username belongs to an instructor",
                 )
             )
             continue
@@ -179,7 +173,7 @@ def import_roster(
             results.append(
                 _result(
                     username,
-                    course.course_code,
+                    course.course_identifier,
                     RosterImportStatus.ALREADY_ENROLLED,
                     "The student is already enrolled",
                 )
@@ -191,6 +185,7 @@ def import_roster(
                 berkeley_username=username,
                 password_hash=None,
                 role=UserRole.STUDENT,
+                course_id=course.id,
                 is_active=True,
             )
             db.add(user)
@@ -208,7 +203,7 @@ def import_roster(
         results.append(
             _result(
                 username,
-                course.course_code,
+                course.course_identifier,
                 RosterImportStatus.CREATED,
                 "Student enrollment created",
                 activation_code=activation_code,
@@ -226,7 +221,7 @@ def render_roster_csv(rows: list[RosterImportRow]) -> str:
     writer.writerow(
         [
             "berkeley_username",
-            "course_code",
+            "course_id",
             "activation_code",
             "status",
             "message",
@@ -236,7 +231,7 @@ def render_roster_csv(rows: list[RosterImportRow]) -> str:
         writer.writerow(
             [
                 spreadsheet_safe_csv_cell(row.berkeley_username),
-                spreadsheet_safe_csv_cell(row.course_code),
+                spreadsheet_safe_csv_cell(row.course_id),
                 spreadsheet_safe_csv_cell(row.activation_code),
                 spreadsheet_safe_csv_cell(row.status.value),
                 spreadsheet_safe_csv_cell(row.message),
@@ -254,7 +249,7 @@ def roster_summary(rows: list[RosterImportRow]) -> dict[str, int]:
 
 def _result(
     username: str,
-    course_code: str,
+    course_id: str,
     status: RosterImportStatus,
     message: str,
     *,
@@ -262,7 +257,7 @@ def _result(
 ) -> RosterImportRow:
     return RosterImportRow(
         berkeley_username=username,
-        course_code=course_code,
+        course_id=course_id,
         activation_code=activation_code if status == RosterImportStatus.CREATED else "",
         status=status,
         message=message,

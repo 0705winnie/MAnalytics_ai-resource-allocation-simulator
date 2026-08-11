@@ -118,7 +118,7 @@ def render_regenerated_activation_csv(
     writer.writerow(
         [
             "berkeley_username",
-            "course_code",
+            "course_id",
             "activation_code",
             "status",
             "message",
@@ -127,7 +127,7 @@ def render_regenerated_activation_csv(
     writer.writerow(
         [
             spreadsheet_safe_csv_cell(enrollment.user.berkeley_username),
-            spreadsheet_safe_csv_cell(enrollment.course.course_code),
+            spreadsheet_safe_csv_cell(enrollment.course.course_identifier),
             spreadsheet_safe_csv_cell(activation_code),
             "regenerated",
             "Activation code regenerated",

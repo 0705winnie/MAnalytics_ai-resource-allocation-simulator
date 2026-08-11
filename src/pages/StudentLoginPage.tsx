@@ -11,7 +11,7 @@ const INVALID_CREDENTIALS_MESSAGE = 'Invalid course, username, or password.'
 export default function StudentLoginPage() {
   const navigate = useNavigate()
   const { status, error: authError, loginStudent, refreshAuth } = useAuth()
-  const [courseCode, setCourseCode] = useState('')
+  const [courseId, setCourseId] = useState('')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -25,7 +25,7 @@ export default function StudentLoginPage() {
     setFormError(null)
     try {
       await loginStudent({
-        course_code: courseCode,
+        course_id: courseId,
         berkeley_username: username,
         password,
       })
@@ -84,21 +84,24 @@ export default function StudentLoginPage() {
 
             <form className="mt-7 space-y-5" onSubmit={(event) => void handleSubmit(event)}>
               <div>
-                <label htmlFor="course-code" className="block text-sm font-medium text-ink-dim">
-                  Course Code
+                <label htmlFor="course-id" className="block text-sm font-medium text-ink-dim">
+                  Course ID
                 </label>
                 <input
-                  id="course-code"
-                  name="course_code"
+                  id="course-id"
+                  name="course_id"
                   type="text"
                   autoComplete="organization"
                   required
-                  maxLength={64}
-                  value={courseCode}
-                  onChange={(event) => setCourseCode(event.target.value)}
+                  maxLength={129}
+                  value={courseId}
+                  onChange={(event) => setCourseId(event.target.value)}
                   disabled={submitting}
                   className="mt-2 w-full rounded-md border border-line-strong bg-white px-3 py-2.5 text-sm text-ink outline-none transition focus:border-hud-accent focus:ring-2 focus:ring-hud-accent/15 disabled:opacity-60"
                 />
+                <p className="mt-2 text-xs leading-5 text-ink-faint">
+                  Enter the course identifier in the format CourseCode-Semester, for example IEOR150-2026FALL.
+                </p>
               </div>
 
               <div>

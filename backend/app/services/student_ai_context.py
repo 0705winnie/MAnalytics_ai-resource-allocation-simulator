@@ -57,7 +57,10 @@ class StudentAIContextAssembler:
                     "unfinished_value": result.unfinished_value,
                     "warnings_count": len(result.warnings),
                     "warnings": result.warnings[:10],
-                    "by_type": [item.model_dump() for item in result.by_type],
+                    "by_type_revenue": [
+                        {"type": item.type, "total_revenue": item.total_revenue}
+                        for item in result.by_type
+                    ],
                     "avg_utilization": result.avg_utilization,
                     "peak_utilization": result.peak_utilization,
                     "policy_hash": result.policy_hash,
@@ -99,7 +102,10 @@ class StudentAIContextAssembler:
                 "total_unfinished_requests": official.cumulative.total_unfinished_requests,
                 "total_unfinished_value": official.cumulative.total_unfinished_value,
                 "warnings_count": official.cumulative.warnings_count,
-                "by_type": [item.model_dump() for item in official.cumulative.by_type],
+                "by_type_revenue": [
+                    {"type": item.type, "total_revenue": item.total_revenue}
+                    for item in official.cumulative.by_type
+                ],
             },
             "official_monthly_history": monthly_history,
             "latest_executed_policy": (

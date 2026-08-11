@@ -68,6 +68,8 @@ def _authentication_response(
             AuthenticatedCourseResponse(
                 id=course.id,
                 course_code=course.course_code,
+                semester=course.semester,
+                course_identifier=course.course_identifier,
             )
             if course is not None
             else None
@@ -98,7 +100,10 @@ def instructor_login(
 
     normalized_username = request.username.strip().lower()
     user = db.scalar(
-        select(User).where(User.berkeley_username == normalized_username)
+        select(User).where(
+            User.berkeley_username == normalized_username,
+            User.role == UserRole.INSTRUCTOR,
+        )
     )
     password_hash = (
         user.password_hash
@@ -166,7 +171,7 @@ def student_login(
     try:
         credentials = authenticate_student(
             db,
-            course_code=request.course_code,
+            course_id=request.course_id,
             berkeley_username=request.berkeley_username,
             password=request.password,
         )

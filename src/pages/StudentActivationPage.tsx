@@ -9,7 +9,6 @@ import {
   verifyStudentActivation,
 } from '../auth/api'
 import { useAuth } from '../auth/AuthProvider'
-import type { ActivationPasswordMode } from '../auth/types'
 
 const INVALID_ACTIVATION_MESSAGE =
   'Invalid or expired activation credentials.'
@@ -43,9 +42,7 @@ export default function StudentActivationPage() {
   const navigate = useNavigate()
   const { completeStudentActivation } = useAuth()
   const [step, setStep] = useState<ActivationStep>('verify')
-  const [passwordMode, setPasswordMode] =
-    useState<ActivationPasswordMode | null>(null)
-  const [courseCode, setCourseCode] = useState('')
+  const [courseId, setCourseId] = useState('')
   const [username, setUsername] = useState('')
   const [activationCode, setActivationCode] = useState('')
   const [password, setPassword] = useState('')
@@ -102,10 +99,9 @@ export default function StudentActivationPage() {
 
   function startOver() {
     clearSensitiveState()
-    setCourseCode('')
+    setCourseId('')
     setUsername('')
     setStep('verify')
-    setPasswordMode(null)
     setExpiresAt(null)
     setRemainingSeconds(0)
     setSessionExpired(false)
@@ -115,7 +111,6 @@ export default function StudentActivationPage() {
 
   function backToSignIn() {
     clearSensitiveState()
-    setPasswordMode(null)
     setExpiresAt(null)
     navigate('/login')
   }
@@ -128,11 +123,10 @@ export default function StudentActivationPage() {
     setFormError(null)
     try {
       const verification = await verifyStudentActivation({
-        course_code: courseCode,
+        course_id: courseId,
         berkeley_username: username,
         activation_code: activationCode,
       })
-      setPasswordMode(verification.password_mode)
       setRemainingSeconds(verification.expires_in_seconds)
       setExpiresAt(Date.now() + verification.expires_in_seconds * 1000)
       setSessionExpired(false)
@@ -151,13 +145,13 @@ export default function StudentActivationPage() {
 
   async function handleComplete(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (submitting || sessionExpired || passwordMode === null) return
+    if (submitting || sessionExpired) return
 
     if (password.length < 12 || password.length > 128) {
       setFormError('Password must be between 12 and 128 characters.')
       return
     }
-    if (passwordMode === 'create' && password !== passwordConfirmation) {
+    if (password !== passwordConfirmation) {
       setFormError('Passwords do not match.')
       return
     }
@@ -171,8 +165,7 @@ export default function StudentActivationPage() {
     try {
       await completeStudentActivation({
         password,
-        password_confirmation:
-          passwordMode === 'confirm' ? password : passwordConfirmation,
+        password_confirmation: passwordConfirmation,
         nickname: normalizeNickname(nickname),
       })
       clearSensitiveState()
@@ -186,8 +179,6 @@ export default function StudentActivationPage() {
           setRemainingSeconds(0)
           setSessionExpired(true)
           setFormError(ACTIVATION_SESSION_EXPIRED_MESSAGE)
-        } else if (error.code === 'existing_password_unconfirmed') {
-          setFormError('Existing password could not be confirmed.')
         } else if (error.code === 'nickname_conflict') {
           setFormError('This nickname is already in use for this course.')
         } else if (error.code === 'invalid_nickname') {
@@ -202,8 +193,6 @@ export default function StudentActivationPage() {
       setSubmitting(false)
     }
   }
-
-  const isCreateMode = passwordMode === 'create'
 
   return (
     <main className="min-h-screen bg-paper text-ink">
@@ -232,9 +221,7 @@ export default function StudentActivationPage() {
             >
               {step === 'verify'
                 ? 'Verify activation code'
-                : isCreateMode
-                  ? 'Create your account'
-                  : 'Confirm your account'}
+                : 'Create your account'}
             </h2>
 
             {step === 'verify' ? (
@@ -244,23 +231,26 @@ export default function StudentActivationPage() {
               >
                 <div>
                   <label
-                    htmlFor="activation-course-code"
+                    htmlFor="activation-course-id"
                     className="block text-sm font-medium text-ink-dim"
                   >
-                    Course Code
+                    Course ID
                   </label>
                   <input
-                    id="activation-course-code"
-                    name="course_code"
+                    id="activation-course-id"
+                    name="course_id"
                     type="text"
                     autoComplete="organization"
                     required
-                    maxLength={64}
-                    value={courseCode}
-                    onChange={(event) => setCourseCode(event.target.value)}
+                    maxLength={129}
+                    value={courseId}
+                    onChange={(event) => setCourseId(event.target.value)}
                     disabled={submitting}
                     className="mt-2 w-full rounded-md border border-line-strong bg-white px-3 py-2.5 text-sm text-ink outline-none transition focus:border-hud-accent focus:ring-2 focus:ring-hud-accent/15 disabled:opacity-60"
                   />
+                  <p className="mt-2 text-xs leading-5 text-ink-faint">
+                    Enter the course identifier in the format CourseCode-Semester, for example IEOR150-2026FALL.
+                  </p>
                 </div>
 
                 <div>
@@ -349,13 +339,13 @@ export default function StudentActivationPage() {
                     htmlFor="activation-password"
                     className="block text-sm font-medium text-ink-dim"
                   >
-                    {isCreateMode ? 'Create Password' : 'Existing Password'}
+                    New Password
                   </label>
                   <input
                     id="activation-password"
                     name="password"
                     type="password"
-                    autoComplete={isCreateMode ? 'new-password' : 'current-password'}
+                    autoComplete="new-password"
                     required
                     minLength={12}
                     maxLength={128}
@@ -365,12 +355,11 @@ export default function StudentActivationPage() {
                     className="mt-2 w-full rounded-md border border-line-strong bg-white px-3 py-2.5 text-sm text-ink outline-none transition focus:border-hud-accent focus:ring-2 focus:ring-hud-accent/15 disabled:opacity-60"
                   />
                   <p className="mt-2 text-xs text-ink-faint">
-                    Passwords are global to your Student account and must contain 12–128 characters.
+                    Create a password for your student account in this course. It must contain 12–128 characters.
                   </p>
                 </div>
 
-                {isCreateMode && (
-                  <div>
+                <div>
                     <label
                       htmlFor="activation-password-confirmation"
                       className="block text-sm font-medium text-ink-dim"
@@ -390,8 +379,7 @@ export default function StudentActivationPage() {
                       disabled={submitting || sessionExpired}
                       className="mt-2 w-full rounded-md border border-line-strong bg-white px-3 py-2.5 text-sm text-ink outline-none transition focus:border-hud-accent focus:ring-2 focus:ring-hud-accent/15 disabled:opacity-60"
                     />
-                  </div>
-                )}
+                </div>
 
                 <div>
                   <label

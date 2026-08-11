@@ -202,8 +202,8 @@ export default function InstructorRosterImportPage() {
             ? [
               {
                 label: courseBreadcrumbLabel(
-                  visibleCourse.course_code,
-                  visibleCourse.semester,
+                  visibleCourse.course_identifier,
+                  '',
                 ),
                 to: `/instructor/courses/${visibleCourse.id}`,
                 disabled: importing,
@@ -240,7 +240,7 @@ export default function InstructorRosterImportPage() {
         <>
           <header className="mt-6">
             <p className="font-mono text-xs uppercase tracking-wider text-hud-accent">
-              {visibleCourse.course_code}
+              Course ID: {visibleCourse.course_identifier}
             </p>
             <h1 className="mt-2 text-3xl font-bold tracking-tight">
               Import Roster
@@ -370,6 +370,10 @@ export default function InstructorRosterImportPage() {
                 The server processed {result.summary.processed} roster rows.
                 Download the result now; activation codes are provided only for
                 newly created enrollments.
+              </p>
+              <p className="mt-2 text-sm font-semibold text-emerald-950">
+                Send students their Berkeley Username, Course ID, and Activation Code together.
+                Students need all three items to identify and activate the correct course-specific account.
               </p>
 
               <dl className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">

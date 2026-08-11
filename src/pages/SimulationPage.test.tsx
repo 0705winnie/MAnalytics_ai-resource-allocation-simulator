@@ -191,4 +191,13 @@ describe('official Run Month UI', () => {
     expect(screen.queryByText('Submit Result')).toBeNull()
     expect(screen.getByText(/saved automatically/)).toBeTruthy()
   })
+
+  it('shows only revenue in By Type details and never exposes remaining capacity', () => {
+    render(<Harness initial={officialSession(1)} />)
+
+    expect(screen.getByText('Revenue by Type')).toBeTruthy()
+    expect(screen.getByText('$500')).toBeTruthy()
+    expect(screen.queryByText(/Remaining Capacity/i)).toBeNull()
+    expect(screen.queryByText(/\d+\/\d+ completed/i)).toBeNull()
+  })
 })

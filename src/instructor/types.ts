@@ -3,6 +3,7 @@ export interface InstructorCourse {
   course_code: string
   course_name: string
   semester: string
+  course_identifier: string
   is_active: boolean
   created_at: string
   updated_at: string

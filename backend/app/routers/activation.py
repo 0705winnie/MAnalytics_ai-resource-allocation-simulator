@@ -22,7 +22,6 @@ from app.schemas.activation import (
     ActivationCompleteRequest,
     ActivationVerificationResponse,
     ActivationVerifyRequest,
-    PasswordMode,
 )
 from app.schemas.auth import (
     AuthenticatedCourseResponse,
@@ -31,7 +30,6 @@ from app.schemas.auth import (
 )
 from app.services.activation_codes import ActivationCodeError
 from app.services.activation_completion import (
-    InvalidExistingPasswordError,
     InvalidNicknameError,
     prepare_activation_completion,
 )
@@ -95,7 +93,7 @@ def verify_student_activation(
 ) -> ActivationVerificationResponse | Response:
     credentials = verify_activation_credentials(
         db,
-        course_code=request.course_code,
+        course_id=request.course_id,
         berkeley_username=request.berkeley_username,
         submitted_code=request.activation_code,
     )
@@ -143,11 +141,6 @@ def verify_student_activation(
     return ActivationVerificationResponse(
         verified=True,
         expires_in_seconds=expires_in_seconds,
-        password_mode=(
-            PasswordMode.CREATE
-            if credentials.user.password_hash is None
-            else PasswordMode.CONFIRM
-        ),
     )
 
 
@@ -191,6 +184,8 @@ def complete_student_activation(
             course=AuthenticatedCourseResponse(
                 id=context.course.id,
                 course_code=context.course.course_code,
+                semester=context.course.semester,
+                course_identifier=context.course.course_identifier,
             ),
             nickname=context.enrollment.nickname,
         )
@@ -201,12 +196,6 @@ def complete_student_activation(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=ACTIVATION_CONTEXT_REQUIRED_MESSAGE,
             settings=settings,
-        )
-    except InvalidExistingPasswordError:
-        db.rollback()
-        return _retryable_completion_failure(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Activation credentials could not be confirmed",
         )
     except InvalidNicknameError:
         db.rollback()

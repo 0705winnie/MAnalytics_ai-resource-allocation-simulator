@@ -141,9 +141,9 @@ export default function InstructorCoursesPage() {
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="font-mono text-xs uppercase tracking-wider text-hud-accent">
-                      {course.course_code}
+                      Course ID
                     </p>
-                    <h2 className="mt-2 text-xl font-semibold">{course.course_name}</h2>
+                    <h2 className="mt-2 font-mono text-lg font-semibold">{course.course_identifier}</h2>
                   </div>
                   <span
                     className={[
@@ -156,7 +156,7 @@ export default function InstructorCoursesPage() {
                     {course.is_active ? 'Active' : 'Inactive'}
                   </span>
                 </div>
-                <p className="mt-3 text-sm text-ink-dim">{course.semester}</p>
+                <p className="mt-3 text-sm text-ink-dim">{course.course_name}</p>
                 <div className="mt-auto pt-6">
                   <Link
                     to={`/instructor/courses/${course.id}`}

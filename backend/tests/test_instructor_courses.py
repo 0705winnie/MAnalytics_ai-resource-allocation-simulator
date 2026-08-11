@@ -164,16 +164,17 @@ def test_instructor_creates_trimmed_active_owned_course(
     response = client.post(
         "/api/instructor/courses",
         json={
-            "course_code": "  IEOR150-Fall2026  ",
+            "course_code": "  IEOR150  ",
             "course_name": "  IEOR 150  ",
-            "semester": "  Fall 2026  ",
+            "semester": "  2026fall  ",
         },
     )
 
     assert response.status_code == 201
-    assert response.json()["course_code"] == "IEOR150-Fall2026"
+    assert response.json()["course_code"] == "IEOR150"
     assert response.json()["course_name"] == "IEOR 150"
-    assert response.json()["semester"] == "Fall 2026"
+    assert response.json()["semester"] == "2026FALL"
+    assert response.json()["course_identifier"] == "IEOR150-2026FALL"
     assert response.json()["is_active"] is True
 
     with course_session_factory() as session:
@@ -189,9 +190,9 @@ def test_instructor_creates_trimmed_active_owned_course(
 
 @pytest.mark.parametrize(
     "duplicate_code",
-    ["ieor150-fall2026", "  IEOR150-Fall2026  "],
+    ["ieor150", "  IEOR150  "],
 )
-def test_duplicate_course_code_returns_safe_conflict(
+def test_duplicate_course_code_and_semester_returns_safe_conflict(
     duplicate_code,
     client,
     course_session_factory,
@@ -203,9 +204,9 @@ def test_duplicate_course_code_returns_safe_conflict(
     )
     _authenticate(client, instructor, auth_settings)
     original_payload = {
-        "course_code": "IEOR150-Fall2026",
+        "course_code": "IEOR150",
         "course_name": "IEOR 150",
-        "semester": "Fall 2026",
+        "semester": "2026FALL",
     }
     assert client.post(
         "/api/instructor/courses",
@@ -219,7 +220,8 @@ def test_duplicate_course_code_returns_safe_conflict(
 
     assert response.status_code == 409
     assert response.json() == {
-        "detail": "A course with this course code already exists"
+        "detail": "This Course Code and Semester combination already exists. "
+        "Please modify one of the fields and try again."
     }
 
 
@@ -254,10 +256,31 @@ def test_integrity_error_rolls_back_and_returns_safe_conflict(
 
     assert response.status_code == 409
     assert response.json() == {
-        "detail": "A course with this course code already exists"
+        "detail": "This Course Code and Semester combination already exists. "
+        "Please modify one of the fields and try again."
     }
     db.rollback.assert_called_once_with()
     assert "database details" not in response.text
+
+
+def test_same_course_code_is_allowed_in_a_different_semester(
+    client,
+    course_session_factory,
+    auth_settings,
+):
+    instructor = _create_user(course_session_factory, username=INSTRUCTOR_A)
+    _authenticate(client, instructor, auth_settings)
+
+    first = client.post("/api/instructor/courses", json={
+        "course_code": "IEOR150", "course_name": "First", "semester": "2026FALL",
+    })
+    second = client.post("/api/instructor/courses", json={
+        "course_code": " ieor150 ", "course_name": "Second", "semester": "2027spring",
+    })
+
+    assert first.status_code == second.status_code == 201
+    assert first.json()["course_identifier"] == "IEOR150-2026FALL"
+    assert second.json()["course_identifier"] == "IEOR150-2027SPRING"
 
 
 @pytest.mark.parametrize(

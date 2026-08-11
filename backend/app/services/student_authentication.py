@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, contains_eager
 from app.core.security import DUMMY_PASSWORD_HASH, verify_password
 from app.models import CourseInstance, Enrollment, User
 from app.models.enums import EnrollmentStatus, UserRole
+from app.services.course_identity import normalize_course_identifier
 
 
 @dataclass(frozen=True)
@@ -22,7 +23,7 @@ class AuthenticatedStudent:
 def authenticate_student(
     db: Session,
     *,
-    course_code: str,
+    course_id: str,
     berkeley_username: str,
     password: str,
 ) -> AuthenticatedStudent | None:
@@ -33,8 +34,10 @@ def authenticate_student(
         .join(User, Enrollment.user_id == User.id)
         .join(CourseInstance, Enrollment.course_id == CourseInstance.id)
         .where(
-            CourseInstance.course_code_normalized == course_code.lower(),
+            CourseInstance.course_code_normalized + "-" + CourseInstance.semester_normalized
+            == normalize_course_identifier(course_id).lower(),
             User.berkeley_username == berkeley_username,
+            User.course_id == CourseInstance.id,
         )
         .options(
             contains_eager(Enrollment.user),

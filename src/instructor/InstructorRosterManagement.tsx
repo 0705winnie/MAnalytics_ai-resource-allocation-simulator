@@ -415,6 +415,9 @@ export default function InstructorRosterManagement({
                 recovered after refresh or navigation and must be distributed
                 securely to the intended student.
               </p>
+              <p className="mt-2 text-sm font-semibold text-amber-950">
+                Send the student their Berkeley Username, Course ID, and Activation Code together.
+              </p>
               <div className="mt-4 flex flex-col gap-3 sm:flex-row">
                 <button
                   type="button"

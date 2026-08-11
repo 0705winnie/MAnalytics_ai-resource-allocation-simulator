@@ -12,17 +12,13 @@ from app.core.activation_auth import (
 )
 from app.core.auth import create_access_token
 from app.core.config import AuthSettings
-from app.core.security import hash_password, verify_password
+from app.core.security import hash_password
 from app.models.enums import UserRole
 from app.services.activation_codes import mark_activation_used
 
 
 class ActivationCompletionError(RuntimeError):
     """A safe, retryable completion error."""
-
-
-class InvalidExistingPasswordError(ActivationCompletionError):
-    pass
 
 
 class InvalidNicknameError(ActivationCompletionError):
@@ -62,12 +58,7 @@ def prepare_activation_completion(
     ):
         raise InvalidNicknameError("Nickname is invalid")
 
-    if user.password_hash is None:
-        user.password_hash = hash_password(password)
-    elif not verify_password(password, user.password_hash):
-        raise InvalidExistingPasswordError(
-            "Activation credentials could not be confirmed"
-        )
+    user.password_hash = hash_password(password)
 
     enrollment.nickname = nickname
     mark_activation_used(enrollment)

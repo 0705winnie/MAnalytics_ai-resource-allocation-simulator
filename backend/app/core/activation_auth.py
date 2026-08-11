@@ -215,6 +215,7 @@ def get_activation_context(
             Enrollment.user_id == claims.user_id,
             Enrollment.course_id == claims.course_id,
             User.id == claims.user_id,
+            User.course_id == claims.course_id,
             CourseInstance.id == claims.course_id,
         )
         .options(
@@ -265,6 +266,7 @@ def lock_activation_context(
             Enrollment.user_id == claims.user_id,
             Enrollment.course_id == claims.course_id,
             User.id == claims.user_id,
+            User.course_id == claims.course_id,
             CourseInstance.id == claims.course_id,
         )
         .options(

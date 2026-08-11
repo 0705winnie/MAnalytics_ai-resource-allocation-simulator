@@ -21,12 +21,8 @@ export function officialMonth(
     unfinished_value: 250,
     avg_utilization: { '1': 0.5 },
     peak_utilization: { '1': 0.8 },
-    remaining_capacity: { '1': 20 },
     by_type: [{
       type: 'VIP',
-      total_requests: 20,
-      admitted_requests: 18,
-      completed_requests: 17,
       total_revenue: 500,
     }],
     warnings: [],

@@ -17,9 +17,6 @@ from app.services.student_ai_context import StudentAIContextAssembler
 def _type_result(name: str, revenue: float) -> SimpleNamespace:
     value = {
         "type": name,
-        "total_requests": 10,
-        "admitted_requests": 7,
-        "completed_requests": 6,
         "total_revenue": revenue,
     }
     return SimpleNamespace(**value, model_dump=lambda: dict(value))
@@ -69,17 +66,18 @@ def _official_state() -> SimpleNamespace:
 
 def _auth_context() -> AuthContext:
     owner_id = uuid.uuid4()
-    user = User(
-        id=uuid.uuid4(),
-        berkeley_username="student-a",
-        role=UserRole.STUDENT,
-    )
     course = CourseInstance(
         id=uuid.uuid4(),
         course_code="AI-CONTEXT",
         course_name="AI Context Course",
         semester="Fall 2026",
         created_by=owner_id,
+    )
+    user = User(
+        id=uuid.uuid4(),
+        berkeley_username="student-a",
+        role=UserRole.STUDENT,
+        course_id=course.id,
     )
     enrollment = Enrollment(
         id=uuid.uuid4(),
@@ -141,6 +139,10 @@ def test_context_contains_own_progress_history_and_distinct_draft(monkeypatch):
     assert "CURRENT EDITOR DRAFT" in prompt
     assert "CURRENT-DRAFT-POLICY-A" in prompt
     assert "own-warning-4" in prompt
+    assert "remaining_capacity" not in json.dumps(context)
+    assert set(context["official_monthly_history"][0]["by_type_revenue"][0]) == {
+        "type", "total_revenue"
+    }
 
 
 def test_context_cannot_include_another_students_private_data(monkeypatch):

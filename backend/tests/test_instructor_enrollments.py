@@ -464,7 +464,7 @@ def test_pending_student_activation_regeneration_invalidates_old_code(
     row = _csv_row(response)
     new_code = row["activation_code"]
     assert row["berkeley_username"] == student.berkeley_username
-    assert row["course_code"] == "'-FormulaCourse"
+    assert row["course_id"] == f"'{course.course_identifier}"
     assert row["status"] == "regenerated"
     assert re.fullmatch(r"[A-Z2-9]{4}(?:-[A-Z2-9]{4}){2}", new_code)
     assert new_code != old_code

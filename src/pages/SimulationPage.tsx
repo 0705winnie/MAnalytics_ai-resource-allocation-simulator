@@ -535,7 +535,7 @@ export default function SimulationPage({
             <BenchmarkComparisonTable rows={shownMonth.benchmark_comparison} />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
             <div>
               <div className="text-xs text-ink-faint mb-2 uppercase tracking-wide">Revenue by Type</div>
               <div className="space-y-1.5">
@@ -543,17 +543,6 @@ export default function SimulationPage({
                   <div key={t.type} className="flex items-center justify-between text-xs">
                     <span className="text-ink-dim capitalize">{t.type}</span>
                     <span className="font-mono text-ink-dim">${t.total_revenue.toLocaleString()}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div>
-              <div className="text-xs text-ink-faint mb-2 uppercase tracking-wide">Remaining Capacity (Month End)</div>
-              <div className="space-y-1.5">
-                {Object.entries(shownMonth.remaining_capacity).map(([cid, free]) => (
-                  <div key={cid} className="flex items-center justify-between text-xs">
-                    <span className="text-ink-dim">Cluster {cid}</span>
-                    <span className="font-mono text-ink-dim">{free} units free</span>
                   </div>
                 ))}
               </div>

@@ -57,6 +57,8 @@ function parseInstructorCourse(value: unknown): InstructorCourse {
     || value.course_name.length === 0
     || typeof value.semester !== 'string'
     || value.semester.length === 0
+    || typeof value.course_identifier !== 'string'
+    || value.course_identifier.length === 0
     || typeof value.is_active !== 'boolean'
     || typeof value.created_at !== 'string'
     || !isIsoTimestamp(value.created_at)
@@ -71,6 +73,7 @@ function parseInstructorCourse(value: unknown): InstructorCourse {
     course_code: value.course_code,
     course_name: value.course_name,
     semester: value.semester,
+    course_identifier: value.course_identifier,
     is_active: value.is_active,
     created_at: value.created_at,
     updated_at: value.updated_at,
@@ -234,7 +237,7 @@ const MAX_ROSTER_RESPONSE_BYTES = 2 * 1024 * 1024
 const ROSTER_DOWNLOAD_FILENAME = 'roster-activation-codes.csv'
 const ROSTER_HEADER = [
   'berkeley_username',
-  'course_code',
+  'course_id',
   'activation_code',
   'status',
   'message',
@@ -466,7 +469,7 @@ export async function importInstructorRoster(
       },
     )
     throwForCourseResponse(response)
-    return await parseRosterImportResponse(response, course.course_code)
+    return await parseRosterImportResponse(response, course.course_identifier)
   } catch (error) {
     return unavailableUnlessAborted(error)
   }
@@ -634,7 +637,7 @@ async function parseActivationReissueResponse(
   const row = records[1]
   if (
     row[0] !== spreadsheetSafeValue(enrollment.berkeley_username)
-    || row[1] !== spreadsheetSafeValue(course.course_code)
+    || row[1] !== spreadsheetSafeValue(course.course_identifier)
     || !ACTIVATION_CODE_PATTERN.test(row[2])
     || row[3] !== 'regenerated'
     || !row[4]

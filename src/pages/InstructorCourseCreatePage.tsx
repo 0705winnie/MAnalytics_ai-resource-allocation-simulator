@@ -65,7 +65,7 @@ export default function InstructorCourseCreatePage() {
           return
         }
         if (requestError.code === 'conflict') {
-          setFormError('This course code is already in use.')
+          setFormError('This Course Code and Semester combination already exists. Please modify one of the fields and try again.')
           return
         }
         if (requestError.code === 'invalid_input') {
@@ -97,8 +97,7 @@ export default function InstructorCourseCreatePage() {
       </p>
       <h1 className="mt-2 text-3xl font-bold tracking-tight">Create Course</h1>
       <p className="mt-2 text-sm leading-6 text-ink-dim">
-        Course codes are unique across the system, ignoring capitalization and
-        surrounding spaces.
+        The combination of Course Code and Semester must be unique across the system.
       </p>
 
       <form
@@ -172,6 +171,7 @@ export default function InstructorCourseCreatePage() {
               aria-invalid={Boolean(fieldErrors.semester)}
               className="mt-2 w-full rounded-md border border-line-strong bg-white px-3 py-2.5 text-sm outline-none focus:border-hud-accent focus:ring-2 focus:ring-hud-accent/15 disabled:opacity-60"
             />
+            <p className="mt-2 text-xs text-ink-faint">Examples: 2026FALL, 2027SPRING</p>
             {fieldErrors.semester && (
               <p id="course-semester-error" className="mt-2 text-sm text-red-700">
                 {fieldErrors.semester}

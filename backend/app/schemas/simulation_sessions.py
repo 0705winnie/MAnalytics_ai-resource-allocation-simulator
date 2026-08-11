@@ -26,11 +26,8 @@ class RunNextMonthRequest(BaseModel):
         return value
 
 
-class TypeResultResponse(BaseModel):
+class RevenueByTypeResponse(BaseModel):
     type: str
-    total_requests: int
-    admitted_requests: int
-    completed_requests: int
     total_revenue: float
 
 
@@ -59,8 +56,7 @@ class OfficialMonthlyResultResponse(BaseModel):
     unfinished_value: float
     avg_utilization: dict[str, float]
     peak_utilization: dict[str, float]
-    remaining_capacity: dict[str, int]
-    by_type: list[TypeResultResponse]
+    by_type: list[RevenueByTypeResponse]
     warnings: list[str]
     benchmark_comparison: list[BenchmarkResultResponse]
     completed_at: datetime
@@ -75,7 +71,7 @@ class CumulativeResultResponse(BaseModel):
     total_unfinished_requests: int
     total_unfinished_value: float
     warnings_count: int
-    by_type: list[TypeResultResponse]
+    by_type: list[RevenueByTypeResponse]
     benchmark_comparison: list[BenchmarkResultResponse]
 
 

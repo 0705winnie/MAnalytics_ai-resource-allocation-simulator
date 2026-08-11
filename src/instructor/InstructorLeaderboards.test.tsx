@@ -23,6 +23,7 @@ vi.mock('./api', async (importOriginal) => {
 const course: InstructorCourse = {
   id: 'course-id',
   course_code: 'COURSE',
+  course_identifier: 'COURSE-2026FALL',
   course_name: 'Course',
   semester: 'Fall 2026',
   is_active: true,

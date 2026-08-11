@@ -4,27 +4,25 @@ from __future__ import annotations
 
 import re
 import unicodedata
-from enum import StrEnum
-
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 MAX_RAW_NICKNAME_LENGTH = 128
 
 
-class PasswordMode(StrEnum):
-    CREATE = "create"
-    CONFIRM = "confirm"
-
-
 class ActivationVerifyRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    course_code: str = Field(min_length=1, max_length=64)
+    course_id: str = Field(min_length=1, max_length=129)
     berkeley_username: str = Field(min_length=1, max_length=64)
     activation_code: str = Field(min_length=1, max_length=32)
 
-    @field_validator("course_code", "activation_code", mode="before")
+    @field_validator("course_id", mode="before")
+    @classmethod
+    def normalize_course_id(cls, value: object) -> object:
+        return value.strip().upper() if isinstance(value, str) else value
+
+    @field_validator("activation_code", mode="before")
     @classmethod
     def trim_credential_fields(cls, value: object) -> object:
         return value.strip() if isinstance(value, str) else value
@@ -38,7 +36,6 @@ class ActivationVerifyRequest(BaseModel):
 class ActivationVerificationResponse(BaseModel):
     verified: bool
     expires_in_seconds: int
-    password_mode: PasswordMode
 
 
 class ActivationCompleteRequest(BaseModel):

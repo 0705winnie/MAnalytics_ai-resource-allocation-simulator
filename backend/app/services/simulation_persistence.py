@@ -22,7 +22,6 @@ from app.schemas.simulation_sessions import (
     OfficialSessionResponse,
     RunNextMonthRequest,
     RunNextMonthResponse,
-    TypeResultResponse,
 )
 from app.services.baseline_policies import BASELINE_POLICIES
 from app.services.policy_sandbox import compile_policy
@@ -88,16 +87,6 @@ def _money(value: Decimal | int | float) -> float:
     return float(value)
 
 
-def _type_result(value: Mapping[str, Any]) -> TypeResultResponse:
-    return TypeResultResponse(
-        type=str(value["type"]),
-        total_requests=int(value["total_requests"]),
-        admitted_requests=int(value["admitted_requests"]),
-        completed_requests=int(value["completed_requests"]),
-        total_revenue=_money(value["total_revenue"]),
-    )
-
-
 def _benchmark_result(value: Mapping[str, Any]) -> BenchmarkResultResponse:
     return BenchmarkResultResponse(
         policy=str(value["policy"]),
@@ -130,10 +119,10 @@ def _monthly_response(result: MonthlyResult) -> OfficialMonthlyResultResponse:
         peak_utilization={
             str(key): float(value) for key, value in result.peak_utilization.items()
         },
-        remaining_capacity={
-            str(key): int(value) for key, value in result.remaining_capacity.items()
-        },
-        by_type=[_type_result(value) for value in result.by_type],
+        by_type=[
+            {"type": str(value["type"]), "total_revenue": _money(value["total_revenue"])}
+            for value in result.by_type
+        ],
         warnings=list(result.warnings),
         benchmark_comparison=[
             _benchmark_result(value) for value in result.benchmark_comparison
@@ -252,13 +241,7 @@ def _aggregate_results(
         ),
         warnings_count=sum(len(result.warnings) for result in monthly_results),
         by_type=[
-            TypeResultResponse(
-                type=name,
-                total_requests=int(total["total_requests"]),
-                admitted_requests=int(total["admitted_requests"]),
-                completed_requests=int(total["completed_requests"]),
-                total_revenue=_money(total["total_revenue"]),
-            )
+            {"type": name, "total_revenue": _money(total["total_revenue"])}
             for name, total in type_totals.items()
         ],
         benchmark_comparison=[

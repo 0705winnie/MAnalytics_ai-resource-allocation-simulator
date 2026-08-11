@@ -115,8 +115,8 @@ export default function InstructorCourseDetailPage() {
           {
             label: visibleCourse
               ? courseBreadcrumbLabel(
-                visibleCourse.course_code,
-                visibleCourse.semester,
+                visibleCourse.course_identifier,
+                '',
               )
               : 'Course',
             current: true,
@@ -152,13 +152,13 @@ export default function InstructorCourseDetailPage() {
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <p className="font-mono text-xs uppercase tracking-wider text-hud-accent">
-                  {visibleCourse.course_code}
+                  Course ID
                 </p>
-                <h1 className="mt-2 text-3xl font-bold tracking-tight">
-                  {visibleCourse.course_name}
+                <h1 className="mt-2 font-mono text-3xl font-bold tracking-tight">
+                  {visibleCourse.course_identifier}
                 </h1>
                 <p className="mt-3 text-sm text-ink-dim">
-                  {visibleCourse.semester}
+                  Course Name: {visibleCourse.course_name}
                 </p>
               </div>
               <span
@@ -216,10 +216,10 @@ export default function InstructorCourseDetailPage() {
             ) : (
               <div className="mt-4 rounded-md border border-red-300 bg-white p-5">
                 <p className="font-semibold text-red-950">
-                  Delete {visibleCourse.course_code} {visibleCourse.semester}?
+                  Delete {visibleCourse.course_identifier}?
                 </p>
                 <p className="mt-2 text-sm leading-6 text-red-900">
-                  This permanently deletes this course, all course enrollments, all simulation progress, and all monthly results. Student user accounts will NOT be deleted.
+                  This permanently deletes this course, its course-specific Student accounts, all enrollments, simulation progress, monthly results, and Student AI usage. Other courses and Instructor accounts remain unchanged.
                 </p>
                 <label htmlFor="delete-course-confirmation" className="mt-4 block text-sm font-medium text-red-950">
                   Type DELETE to confirm

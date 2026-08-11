@@ -186,7 +186,7 @@ def test_import_creates_student_pending_enrollment_and_verifiable_one_time_code(
     assert len(rows) == 1
     row = rows[0]
     assert row["berkeley_username"] == "new.student-1"
-    assert row["course_code"] == course.course_code
+    assert row["course_id"] == course.course_identifier
     assert row["status"] == "created"
     code = row["activation_code"]
     assert re.fullmatch(r"[A-Z2-9]{4}(?:-[A-Z2-9]{4}){2}", code)
@@ -674,7 +674,7 @@ def test_response_is_non_cacheable_attachment_and_spreadsheet_safe(
     assert response.headers["cache-control"] == "no-store"
     assert response.headers["pragma"] == "no-cache"
     row = _response_rows(response)[0]
-    assert row["course_code"] == "'-SpreadsheetFormula"
+    assert row["course_id"] == f"'{course.course_identifier}"
     lowered = response.text.lower()
     assert "password_hash" not in lowered
     assert "activation_code_hash" not in lowered

@@ -13,7 +13,7 @@ from sqlalchemy.exc import IntegrityError
 from tests.conftest import validate_test_database_url
 
 
-HEAD_REVISION = "0005_llm_daily_usage"
+HEAD_REVISION = "0006_course_scoped_student_accounts"
 EXPECTED_TABLES = {
     "users",
     "course_instances",
@@ -60,26 +60,41 @@ def _seed_account(
         )
         connection.execute(
             text(
-                "INSERT INTO users (id, berkeley_username, role) "
-                "VALUES (:id, :username, 'student')"
-            ),
-            {
-                "id": ids["student_id"],
-                "username": f"migration-student-{suffix}",
-            },
-        )
-        connection.execute(
-            text(
                 "INSERT INTO course_instances "
                 "(id, course_code, course_name, semester, created_by) "
                 "VALUES (:id, :code, 'Migration Test', 'Fall 2026', :owner)"
             ),
             {
                 "id": ids["course_id"],
-                "code": f"MIG-{suffix}",
+                "code": f"MIG-{suffix}".upper(),
                 "owner": ids["instructor_id"],
             },
         )
+        if "course_id" in {
+            column["name"] for column in inspect(engine).get_columns("users")
+        }:
+            connection.execute(
+                text(
+                    "INSERT INTO users (id, berkeley_username, role, course_id) "
+                    "VALUES (:id, :username, 'student', :course_id)"
+                ),
+                {
+                    "id": ids["student_id"],
+                    "username": f"migration-student-{suffix}",
+                    "course_id": ids["course_id"],
+                },
+            )
+        else:
+            connection.execute(
+                text(
+                    "INSERT INTO users (id, berkeley_username, role) "
+                    "VALUES (:id, :username, 'student')"
+                ),
+                {
+                    "id": ids["student_id"],
+                    "username": f"migration-student-{suffix}",
+                },
+            )
         connection.execute(
             text(
                 "INSERT INTO enrollments "
@@ -351,7 +366,7 @@ def test_0004_schema_constraints_indexes_and_money_types(
 def test_0004_uniqueness_ranges_and_restrict_fks_are_enforced(
     test_alembic_config,
     test_engine: Engine,
-):
+    ):
     try:
         command.downgrade(test_alembic_config, "base")
         command.upgrade(test_alembic_config, "head")
@@ -408,6 +423,129 @@ def test_0004_uniqueness_ranges_and_restrict_fks_are_enforced(
                 {"id": first["enrollment_id"]},
             )
     finally:
+        command.downgrade(test_alembic_config, "base")
+        command.upgrade(test_alembic_config, "head")
+
+
+def test_0006_splits_multi_course_student_and_preserves_enrollment_history(
+    test_alembic_config,
+    test_engine: Engine,
+):
+    instructor_id = uuid.uuid4()
+    student_id = uuid.uuid4()
+    course_ids = [uuid.uuid4(), uuid.uuid4()]
+    enrollment_ids = [uuid.uuid4(), uuid.uuid4()]
+    session_ids = [uuid.uuid4(), uuid.uuid4()]
+    try:
+        command.downgrade(test_alembic_config, "base")
+        command.upgrade(test_alembic_config, "0005_llm_daily_usage")
+        with test_engine.begin() as connection:
+            connection.execute(text(
+                "INSERT INTO users (id, berkeley_username, password_hash, role) "
+                "VALUES (:id, 'migration-owner', 'instructor-hash', 'instructor')"
+            ), {"id": instructor_id})
+            connection.execute(text(
+                "INSERT INTO users (id, berkeley_username, password_hash, role) "
+                "VALUES (:id, 'same-student', 'copied-password-hash', 'student')"
+            ), {"id": student_id})
+            for index in range(2):
+                connection.execute(text(
+                    "INSERT INTO course_instances "
+                    "(id, course_code, course_name, semester, created_by) "
+                    "VALUES (:id, :code, 'Migration Fixture', :semester, :owner)"
+                ), {
+                    "id": course_ids[index], "code": f"MIGSPLIT{index + 1}",
+                    "semester": f"202{6 + index}FALL", "owner": instructor_id,
+                })
+                connection.execute(text(
+                    "INSERT INTO enrollments (id, course_id, user_id, nickname, status) "
+                    "VALUES (:id, :course_id, :user_id, :nickname, 'active')"
+                ), {
+                    "id": enrollment_ids[index], "course_id": course_ids[index],
+                    "user_id": student_id, "nickname": f"Nickname {index + 1}",
+                })
+                connection.execute(text(
+                    "INSERT INTO simulation_sessions (id, enrollment_id, completed_months) "
+                    "VALUES (:id, :enrollment_id, 0)"
+                ), {"id": session_ids[index], "enrollment_id": enrollment_ids[index]})
+            connection.execute(text(
+                "INSERT INTO llm_daily_usage (id, user_id, usage_date, call_count) "
+                "VALUES (:id, :user_id, CURRENT_DATE, 3)"
+            ), {"id": uuid.uuid4(), "user_id": student_id})
+
+        command.upgrade(test_alembic_config, "head")
+        assert _current_revision(test_engine) == HEAD_REVISION
+        with test_engine.connect() as connection:
+            rows = connection.execute(text(
+                "SELECT id, course_id, password_hash FROM users "
+                "WHERE role = 'student' AND berkeley_username = 'same-student' "
+                "ORDER BY course_id"
+            )).all()
+            assert len(rows) == 2
+            assert len({row.id for row in rows}) == 2
+            assert {row.course_id for row in rows} == set(course_ids)
+            assert {row.password_hash for row in rows} == {"copied-password-hash"}
+            assert connection.execute(text(
+                "SELECT nickname FROM enrollments ORDER BY nickname"
+            )).scalars().all() == ["Nickname 1", "Nickname 2"]
+            assert connection.scalar(text("SELECT count(*) FROM simulation_sessions")) == 2
+            assert connection.scalar(text("SELECT count(*) FROM llm_daily_usage")) == 0
+            instructor = connection.execute(text(
+                "SELECT course_id, berkeley_username FROM users WHERE id = :id"
+            ), {"id": instructor_id}).one()
+            assert instructor.course_id is None
+            assert instructor.berkeley_username == "migration-owner"
+
+        with test_engine.begin() as connection:
+            student_rows = connection.execute(text(
+                "SELECT id, course_id FROM users WHERE role = 'student' ORDER BY course_id"
+            )).all()
+            connection.execute(text(
+                "UPDATE users SET password_hash = 'course-a-new-hash' WHERE id = :id"
+            ), {"id": student_rows[0].id})
+            connection.execute(text(
+                "INSERT INTO llm_daily_usage (id, user_id, usage_date, call_count) VALUES "
+                "(:first_id, :first_user, CURRENT_DATE, 1), "
+                "(:second_id, :second_user, CURRENT_DATE, 2)"
+            ), {
+                "first_id": uuid.uuid4(), "first_user": student_rows[0].id,
+                "second_id": uuid.uuid4(), "second_user": student_rows[1].id,
+            })
+            hashes = connection.execute(text(
+                "SELECT password_hash FROM users WHERE role = 'student' ORDER BY course_id"
+            )).scalars().all()
+            assert hashes == ["course-a-new-hash", "copied-password-hash"]
+            assert connection.scalar(text(
+                "SELECT count(*) FROM llm_daily_usage WHERE user_id IN (:first_user, :second_user)"
+            ), {
+                "first_user": student_rows[0].id, "second_user": student_rows[1].id,
+            }) == 2
+
+            connection.execute(text(
+                "INSERT INTO course_instances "
+                "(id, course_code, course_name, semester, created_by) "
+                "VALUES (:id, 'MIGSPLIT1', 'Later Offering', '2028SPRING', :owner)"
+            ), {"id": uuid.uuid4(), "owner": instructor_id})
+
+        with pytest.raises(IntegrityError), test_engine.begin() as connection:
+            connection.execute(text(
+                "INSERT INTO course_instances "
+                "(id, course_code, course_name, semester, created_by) "
+                "VALUES (:id, ' migsplit1 ', 'Duplicate', ' 2026fall ', :owner)"
+            ), {"id": uuid.uuid4(), "owner": instructor_id})
+
+        with pytest.raises(IntegrityError), test_engine.begin() as connection:
+            connection.execute(text(
+                "INSERT INTO users (id, berkeley_username, role, course_id) "
+                "VALUES (:id, 'same-student', 'student', :course_id)"
+            ), {"id": uuid.uuid4(), "course_id": course_ids[0]})
+    finally:
+        with test_engine.begin() as connection:
+            for table in (
+                "monthly_results", "simulation_sessions", "submissions",
+                "enrollments", "llm_daily_usage", "course_instances", "users",
+            ):
+                connection.execute(text(f"DELETE FROM {table}"))
         command.downgrade(test_alembic_config, "base")
         command.upgrade(test_alembic_config, "head")
 

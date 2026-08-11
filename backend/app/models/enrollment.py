@@ -12,6 +12,7 @@ from sqlalchemy import (
     DateTime,
     Enum,
     ForeignKey,
+    ForeignKeyConstraint,
     String,
     UniqueConstraint,
     Uuid,
@@ -36,10 +37,12 @@ class Enrollment(Base):
             "status IN ('pending', 'active', 'disabled')",
             name="enrollment_status",
         ),
-        UniqueConstraint(
-            "course_id",
-            "user_id",
-            name="uq_enrollments_course_user",
+        UniqueConstraint("user_id", name="uq_enrollments_user_id"),
+        ForeignKeyConstraint(
+            ["user_id", "course_id"],
+            ["users.id", "users.course_id"],
+            name="fk_enrollments_user_course_users",
+            ondelete="RESTRICT",
         ),
         UniqueConstraint(
             "course_id",
@@ -65,7 +68,6 @@ class Enrollment(Base):
     )
     user_id: Mapped[uuid.UUID] = mapped_column(
         Uuid(as_uuid=True),
-        ForeignKey("users.id", ondelete="RESTRICT"),
         nullable=False,
     )
     nickname: Mapped[str | None] = mapped_column(String(30), nullable=True)
@@ -116,6 +118,7 @@ class Enrollment(Base):
     )
     user: Mapped[User] = relationship(
         back_populates="enrollments",
+        foreign_keys=[user_id],
     )
     submissions: Mapped[list[Submission]] = relationship(
         back_populates="enrollment",

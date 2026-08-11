@@ -14,6 +14,7 @@ from app.core.security import hash_one_time_secret, verify_one_time_secret
 from app.models import CourseInstance, Enrollment, User
 from app.models.enums import EnrollmentStatus, UserRole
 from app.services.activation_codes import normalize_activation_code
+from app.services.course_identity import normalize_course_identifier
 
 
 _DUMMY_ACTIVATION_HASH = hash_one_time_secret(secrets.token_urlsafe(32))
@@ -30,7 +31,7 @@ class VerifiedActivationCredentials:
 def verify_activation_credentials(
     db: Session,
     *,
-    course_code: str,
+    course_id: str,
     berkeley_username: str,
     submitted_code: str,
     now: datetime | None = None,
@@ -42,8 +43,10 @@ def verify_activation_credentials(
         .join(CourseInstance, Enrollment.course_id == CourseInstance.id)
         .join(User, Enrollment.user_id == User.id)
         .where(
-            CourseInstance.course_code_normalized == course_code.strip().lower(),
+            CourseInstance.course_code_normalized + "-" + CourseInstance.semester_normalized
+            == normalize_course_identifier(course_id).lower(),
             User.berkeley_username == berkeley_username.strip().lower(),
+            User.course_id == CourseInstance.id,
         )
         .options(
             joinedload(Enrollment.course),

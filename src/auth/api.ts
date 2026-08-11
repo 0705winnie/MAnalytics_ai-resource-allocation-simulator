@@ -14,7 +14,6 @@ export type AuthApiErrorCode =
   | 'invalid_instructor_credentials'
   | 'invalid_activation'
   | 'activation_session_expired'
-  | 'existing_password_unconfirmed'
   | 'nickname_conflict'
   | 'invalid_nickname'
   | 'unavailable'
@@ -55,6 +54,8 @@ function parseAuthenticationResponse(value: unknown): AuthenticationResponse {
       !isRecord(course)
       || typeof course.id !== 'string'
       || typeof course.course_code !== 'string'
+      || typeof course.semester !== 'string'
+      || typeof course.course_identifier !== 'string'
     )
   ) {
     throw new AuthApiError('unavailable')
@@ -114,7 +115,6 @@ function parseActivationVerificationResponse(
     || value.verified !== true
     || !Number.isInteger(value.expires_in_seconds)
     || (value.expires_in_seconds as number) <= 0
-    || (value.password_mode !== 'create' && value.password_mode !== 'confirm')
   ) {
     throw new AuthApiError('unavailable')
   }
@@ -122,7 +122,6 @@ function parseActivationVerificationResponse(
   return {
     verified: true,
     expires_in_seconds: value.expires_in_seconds as number,
-    password_mode: value.password_mode,
   }
 }
 
@@ -249,9 +248,6 @@ export async function completeStudentActivation(
     })
     if (response.status === 401) {
       throw new AuthApiError('activation_session_expired')
-    }
-    if (response.status === 400) {
-      throw new AuthApiError('existing_password_unconfirmed')
     }
     if (response.status === 409) {
       throw new AuthApiError('nickname_conflict')

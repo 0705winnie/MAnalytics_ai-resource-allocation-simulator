@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, CheckConstraint, Computed, DateTime, ForeignKey, String, Uuid, func, true
+from sqlalchemy import Boolean, CheckConstraint, Computed, DateTime, ForeignKey, String, UniqueConstraint, Uuid, func, true
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -23,6 +23,14 @@ class CourseInstance(Base):
             "char_length(btrim(course_code)) BETWEEN 1 AND 64",
             name="ck_course_instances_course_code_length",
         ),
+        CheckConstraint(
+            "char_length(btrim(semester)) BETWEEN 1 AND 64",
+            name="ck_course_instances_semester_length",
+        ),
+        UniqueConstraint(
+            "course_code_normalized", "semester_normalized",
+            name="uq_course_instances_code_semester_normalized",
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -35,10 +43,14 @@ class CourseInstance(Base):
         String(64),
         Computed("lower(btrim(course_code))", persisted=True),
         nullable=False,
-        unique=True,
     )
     course_name: Mapped[str] = mapped_column(String(255), nullable=False)
     semester: Mapped[str] = mapped_column(String(64), nullable=False)
+    semester_normalized: Mapped[str] = mapped_column(
+        String(64),
+        Computed("lower(btrim(semester))", persisted=True),
+        nullable=False,
+    )
     created_by: Mapped[uuid.UUID] = mapped_column(
         Uuid(as_uuid=True),
         ForeignKey("users.id", ondelete="RESTRICT"),
@@ -64,7 +76,14 @@ class CourseInstance(Base):
 
     creator: Mapped[User] = relationship(
         back_populates="created_courses",
+        foreign_keys=[created_by],
     )
     enrollments: Mapped[list[Enrollment]] = relationship(
         back_populates="course",
     )
+
+    @property
+    def course_identifier(self) -> str:
+        from app.services.course_identity import course_identifier
+
+        return course_identifier(self.course_code, self.semester)

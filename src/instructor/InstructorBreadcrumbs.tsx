@@ -16,7 +16,7 @@ export function courseBreadcrumbLabel(
   courseCode: string,
   semester: string,
 ): string {
-  return `${courseCode} · ${semester}`
+  return semester ? `${courseCode} · ${semester}` : courseCode
 }
 
 export default function InstructorBreadcrumbs({

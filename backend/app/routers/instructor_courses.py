@@ -16,10 +16,14 @@ from app.core.auth import require_instructor
 from app.db.session import get_db
 from app.models import CourseInstance, User
 from app.services.course_deletions import remove_owned_course
+from app.services.course_identity import normalize_course_component
 
 
 router = APIRouter(prefix="/instructor/courses", tags=["Instructor Courses"])
-COURSE_CODE_CONFLICT_MESSAGE = "A course with this course code already exists"
+COURSE_CODE_CONFLICT_MESSAGE = (
+    "This Course Code and Semester combination already exists. "
+    "Please modify one of the fields and try again."
+)
 COURSE_NOT_FOUND_MESSAGE = "Course not found"
 
 
@@ -30,10 +34,15 @@ class CourseCreateRequest(BaseModel):
     course_name: str = Field(min_length=1, max_length=255)
     semester: str = Field(min_length=1, max_length=64)
 
-    @field_validator("course_code", "course_name", "semester", mode="before")
+    @field_validator("course_name", mode="before")
     @classmethod
     def trim_text_fields(cls, value: object) -> object:
         return value.strip() if isinstance(value, str) else value
+
+    @field_validator("course_code", "semester", mode="before")
+    @classmethod
+    def normalize_identifier_components(cls, value: object) -> object:
+        return normalize_course_component(value) if isinstance(value, str) else value
 
 
 class CourseResponse(BaseModel):
@@ -43,6 +52,7 @@ class CourseResponse(BaseModel):
     course_code: str
     course_name: str
     semester: str
+    course_identifier: str
     is_active: bool
     created_at: datetime
     updated_at: datetime
@@ -68,12 +78,14 @@ def create_course(
     db: Annotated[Session, Depends(get_db)],
     instructor: Annotated[User, Depends(require_instructor)],
 ) -> CourseInstance:
-    """Create a globally unique course owned by the authenticated instructor."""
+    """Create a normalized code-and-semester-unique owned course."""
 
     normalized_code = request.course_code.lower()
+    normalized_semester = request.semester.lower()
     existing_course_id = db.scalar(
         select(CourseInstance.id).where(
-            CourseInstance.course_code_normalized == normalized_code
+            CourseInstance.course_code_normalized == normalized_code,
+            CourseInstance.semester_normalized == normalized_semester,
         )
     )
     if existing_course_id is not None:
@@ -155,7 +167,7 @@ def delete_course(
     db: Annotated[Session, Depends(get_db)],
     instructor: Annotated[User, Depends(require_instructor)],
 ) -> Response:
-    """Delete an owned course's scoped data while retaining global users."""
+    """Delete owned course data and its course-specific Student accounts."""
 
     try:
         removed = remove_owned_course(

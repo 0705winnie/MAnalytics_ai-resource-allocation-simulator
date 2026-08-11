@@ -49,11 +49,17 @@ export interface MonthDetailResult extends SimulationMonthResult {
   by_type: SimulationTypeResult[]
   warnings: string[]
   benchmark_comparison: BenchmarkResult[]
-  // Keyed by cluster id; JSON object keys arrive as strings.
+  // Legacy non-persisting simulation response only; official History omits it.
   remaining_capacity: Record<string, number>
 }
 
-export interface OfficialMonthlyResult extends MonthDetailResult {
+export interface RevenueByTypeResult {
+  type: string
+  total_revenue: number
+}
+
+export interface OfficialMonthlyResult extends Omit<MonthDetailResult, 'by_type' | 'remaining_capacity'> {
+  by_type: RevenueByTypeResult[]
   policy_code: string
   params: PolicyParams
   policy_hash: string
@@ -69,7 +75,7 @@ export interface OfficialCumulativeResult {
   total_unfinished_requests: number
   total_unfinished_value: number
   warnings_count: number
-  by_type: SimulationTypeResult[]
+  by_type: RevenueByTypeResult[]
   benchmark_comparison: BenchmarkResult[]
 }
 
