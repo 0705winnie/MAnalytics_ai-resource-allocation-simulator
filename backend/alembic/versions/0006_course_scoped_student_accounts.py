@@ -43,6 +43,15 @@ def upgrade() -> None:
         "char_length(btrim(semester)) BETWEEN 1 AND 64",
     )
 
+    # Student identities are about to be split into one User per course. Remove
+    # the legacy global username uniqueness rule first so those copies can keep
+    # their original Berkeley username. Instructors remain globally unique.
+    op.drop_constraint("uq_users_berkeley_username", "users", type_="unique")
+    op.create_index(
+        "uq_users_instructor_username", "users", ["berkeley_username"],
+        unique=True, postgresql_where=sa.text("role = 'instructor'"),
+    )
+
     students = bind.execute(sa.text(
         "SELECT id, berkeley_username, password_hash, is_active, created_at, updated_at "
         "FROM users WHERE role = 'student' ORDER BY created_at, id"
@@ -78,7 +87,6 @@ def upgrade() -> None:
         "DELETE FROM llm_daily_usage WHERE user_id IN (SELECT id FROM users WHERE role = 'student')"
     ))
 
-    op.drop_constraint("uq_users_berkeley_username", "users", type_="unique")
     op.create_foreign_key(
         "fk_users_course_id_course_instances", "users", "course_instances",
         ["course_id"], ["id"], ondelete="RESTRICT",
@@ -91,10 +99,6 @@ def upgrade() -> None:
     op.create_index(
         "uq_users_student_course_username", "users", ["course_id", "berkeley_username"],
         unique=True, postgresql_where=sa.text("role = 'student'"),
-    )
-    op.create_index(
-        "uq_users_instructor_username", "users", ["berkeley_username"],
-        unique=True, postgresql_where=sa.text("role = 'instructor'"),
     )
     op.drop_constraint("uq_enrollments_course_user", "enrollments", type_="unique")
     op.drop_constraint("fk_enrollments_user_id_users", "enrollments", type_="foreignkey")
