@@ -21,8 +21,6 @@ services:
         value: "true"
       - key: DISABLE_LEGACY_PROXY_ROUTES
         value: "true"
-      - key: LLM_PROVIDER
-        value: "azure"
       - key: MAX_LLM_CALLS_PER_DAY
         value: "50"
       - key: MAX_LLM_INPUT_TOKENS_PER_DAY

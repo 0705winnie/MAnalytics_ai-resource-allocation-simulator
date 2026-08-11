@@ -58,7 +58,7 @@ describe('persisted Simulation History and real leaderboards', () => {
     expect(codeBlocks[1].textContent).toContain('"threshold": 1')
   })
 
-  it('shows the honest stage-zero state without fake identities', async () => {
+  it('shows the honest month-zero state without fake identities', async () => {
     getSameStageLeaderboard.mockResolvedValue({
       stage: 0,
       current_user_eligible: false,
@@ -68,8 +68,29 @@ describe('persisted Simulation History and real leaderboards', () => {
 
     expect(screen.queryByText(/Sharp Cluster/)).toBeNull()
     expect(screen.queryByText(/Bright Comet/)).toBeNull()
-    await userEvent.click(screen.getByRole('tab', { name: 'Same-Stage Leaderboard' }))
+    await userEvent.click(screen.getByRole('tab', { name: 'Same-Month Leaderboard' }))
     expect(await screen.findByText(/Complete Month 1 to join/)).toBeTruthy()
+  })
+
+  it('uses same-month terminology and the selected month revenue header', async () => {
+    getSameStageLeaderboard.mockResolvedValue({
+      stage: 2,
+      current_user_eligible: true,
+      items: [{
+        rank: 1,
+        nickname: 'Real Nickname',
+        completed_months: 2,
+        cumulative_revenue: 2500,
+        last_activity: '2026-08-10T12:00:00Z',
+        is_current_user: true,
+      }],
+    })
+    render(<LeaderboardPage nickname="Real Nickname" session={officialSession(2)} />)
+
+    await userEvent.click(screen.getByRole('tab', { name: 'Same-Month Leaderboard' }))
+
+    expect(await screen.findByText('Same-Month Leaderboard')).toBeTruthy()
+    expect(screen.getByText('Revenue through Month 2')).toBeTruthy()
   })
 
   it('shows official nickname-only final rankings and current-user eligibility', async () => {
@@ -90,6 +111,7 @@ describe('persisted Simulation History and real leaderboards', () => {
     await userEvent.click(screen.getByRole('tab', { name: 'Final Leaderboard' }))
     expect(await screen.findByText('Real Nickname')).toBeTruthy()
     expect(screen.getByText(/join it only after completing all 12 months/)).toBeTruthy()
+    expect(screen.getByText('Total Revenue (12 Months)')).toBeTruthy()
     expect(screen.queryByText(/berkeley/i)).toBeNull()
   })
 })

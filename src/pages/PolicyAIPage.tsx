@@ -2,6 +2,7 @@
 import {
   AIQuotaError,
   NetworkError,
+  boundedCompleteHistory,
   getAIUsage,
   postChat,
   type AssistantUsage,
@@ -46,8 +47,8 @@ const INPUT_FIELDS = [
 const SUGGESTED_PROMPTS = [
   'How should I handle VIP vs. Economy requests differently?',
   'What is a good threshold for rejecting Economy jobs?',
-  'My policy rejects too many VIPs - how do I fix it?',
-  'Suggest a type-priority routing rule in pseudocode.',
+  'My policy rejects too many VIPs — how do I fix it?',
+  'Help me write a type-priority routing rule in Python.',
 ]
 
 const CHECKLIST = [
@@ -99,15 +100,11 @@ function ValidationBadge({ ok, label }: { ok: boolean; label: string }) {
   )
 }
 
-function ProviderBadge({ provider }: { provider: 'azure' | 'mock' | undefined }) {
+function ProviderBadge({ provider }: { provider: 'azure' | undefined }) {
   if (!provider) return null
   return (
     <span
-      className={`text-xs font-mono px-2 py-0.5 rounded ${
-        provider === 'azure'
-          ? 'bg-hud-accent/12 text-hud-accent'
-          : 'bg-chip text-ink-faint'
-      }`}
+      className="text-xs font-mono px-2 py-0.5 rounded bg-hud-accent/12 text-hud-accent"
     >
       {provider}
     </span>
@@ -240,8 +237,8 @@ interface Props {
   onPolicyParamsChange: (params: PolicyParams) => void
   messages: ChatMessage[]
   onMessagesChange: (messages: ChatMessage[]) => void
-  provider: 'azure' | 'mock' | undefined
-  onProviderChange: (provider: 'azure' | 'mock' | undefined) => void
+  provider: 'azure' | undefined
+  onProviderChange: (provider: 'azure' | undefined) => void
   onNavigate: (page: Page) => void
   session: OfficialSimulationSession
 }
@@ -297,7 +294,7 @@ export default function PolicyAIPage({
     if (!trimmed || loading || quotaExhausted) return
 
     const userMsg: ChatMessage = { role: 'user', content: trimmed }
-    const priorHistory = messages
+    const priorHistory = boundedCompleteHistory(messages)
     onMessagesChange([...messages, userMsg])
     setInput('')
     setLoading(true)
@@ -305,7 +302,12 @@ export default function PolicyAIPage({
     setErrorIsNetwork(false)
 
     try {
-      const res = await postChat({ message: trimmed, history: priorHistory })
+      const res = await postChat({
+        message: trimmed,
+        history: priorHistory,
+        draft_policy_code: policyCode,
+        draft_params: policyParams,
+      })
       onMessagesChange([...priorHistory, userMsg, { role: 'assistant', content: res.content }])
       onProviderChange(res.provider)
       setUsage(res.usage)
@@ -512,9 +514,7 @@ export default function PolicyAIPage({
               </p>
               {usage && (
                 <p className="mt-1 text-xs font-medium text-ink-dim">
-                  {usage.metered
-                    ? `${usage.calls_used} / ${usage.calls_limit} requests used today`
-                    : 'Local mock responses do not use the paid daily allowance'}
+                  {`${usage.calls_used} / ${usage.calls_limit} requests used today`}
                 </p>
               )}
             </div>

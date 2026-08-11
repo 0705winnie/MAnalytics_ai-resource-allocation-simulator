@@ -1,19 +1,14 @@
-"""
-AI assistant endpoint.
+"""Authenticated, student-specific Azure AI assistant routes."""
 
-POST /ai-assistant
-  Receives the student's message (plus optional conversation history and
-  dashboard context), returns the AI assistant's reply.
+from __future__ import annotations
 
-The frontend calls this as POST /api/ai-assistant.
-Vite's dev proxy strips /api and forwards to /ai-assistant here.
-"""
-
+import logging
+import math
 from datetime import datetime
-from typing import Annotated, Dict, List, Optional
+from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -21,11 +16,13 @@ from app.core.auth import AuthContext, require_student
 from app.core.config import LLMQuotaSettings, get_llm_quota_settings
 from app.db.session import get_db
 from app.services.llm_client import (
-    LLMError,
-    estimate_input_tokens,
+    LLMConfigurationError,
+    LLMProviderError,
+    build_llm_messages,
+    estimate_messages_tokens,
     estimate_text_tokens,
     get_llm_client,
-    get_llm_provider_name,
+    validate_llm_client_request,
 )
 from app.services.llm_quota import (
     LLMQuotaExceeded,
@@ -34,34 +31,35 @@ from app.services.llm_quota import (
     reconcile_llm_call,
     reserve_llm_call,
 )
+from app.services.student_ai_context import StudentAIContextAssembler
 
+
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/ai-assistant", tags=["AI Assistant"])
+MAX_CONVERSATION_TURNS = 6
 
-
-# ---------------------------------------------------------------------------
-# Request / response schemas
-# ---------------------------------------------------------------------------
 
 class ChatMessage(BaseModel):
-    role: str     # "user" or "assistant"
-    content: str
+    model_config = ConfigDict(extra="forbid")
+
+    role: Literal["user", "assistant"]
+    content: str = Field(..., min_length=1, max_length=10_000)
 
 
 class AssistantRequest(BaseModel):
-    message: str = Field(..., min_length=1, description="The student's message")
-    history: List[ChatMessage] = Field(
-        default_factory=list,
-        description="Prior conversation turns, oldest first"
-    )
-    context: Optional[Dict] = Field(
-        default=None,
-        description=(
-            "Optional dashboard state. Supported keys: "
-            "current_month (int), "
-            "remaining_capacity (dict[str, int]), "
-            "monthly_result (dict)"
-        ),
-    )
+    model_config = ConfigDict(extra="forbid")
+
+    message: str = Field(..., min_length=1, max_length=10_000)
+    history: list[ChatMessage] = Field(default_factory=list)
+    draft_policy_code: str = Field(..., min_length=1, max_length=50_000)
+    draft_params: dict[str, float] = Field(default_factory=dict)
+
+    @field_validator("draft_params")
+    @classmethod
+    def require_finite_params(cls, value: dict[str, float]) -> dict[str, float]:
+        if any(not math.isfinite(parameter) for parameter in value.values()):
+            raise ValueError("Draft policy parameters must be finite numbers")
+        return value
 
 
 class AssistantUsageResponse(BaseModel):
@@ -82,13 +80,37 @@ class AssistantUsageResponse(BaseModel):
 
 class AssistantResponse(BaseModel):
     content: str
-    provider: str   # "azure" or "mock"
+    provider: Literal["azure"]
     usage: AssistantUsageResponse
 
 
-# ---------------------------------------------------------------------------
-# Route
-# ---------------------------------------------------------------------------
+def bounded_complete_history(history: list[ChatMessage]) -> list[dict[str, str]]:
+    """Return only the latest six complete user/assistant turns."""
+
+    turns: list[tuple[ChatMessage, ChatMessage]] = []
+    index = 0
+    while index < len(history) - 1:
+        first = history[index]
+        second = history[index + 1]
+        if first.role == "user" and second.role == "assistant":
+            turns.append((first, second))
+            index += 2
+        else:
+            index += 1
+    bounded = turns[-MAX_CONVERSATION_TURNS:]
+    return [
+        {"role": message.role, "content": message.content}
+        for turn in bounded
+        for message in turn
+    ]
+
+
+def _temporarily_unavailable() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_502_BAD_GATEWAY,
+        detail="AI Assistant is temporarily unavailable. Please try again.",
+    )
+
 
 @router.get("/usage", response_model=AssistantUsageResponse)
 def usage(
@@ -96,17 +118,8 @@ def usage(
     context: Annotated[AuthContext, Depends(require_student)],
     settings: Annotated[LLMQuotaSettings, Depends(get_llm_quota_settings)],
 ) -> AssistantUsageResponse:
-    try:
-        provider = get_llm_provider_name()
-    except LLMError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from None
     return AssistantUsageResponse.from_status(
-        get_usage_status(
-            db,
-            context.user.id,
-            settings,
-            metered=provider != "mock",
-        )
+        get_usage_status(db, context.user.id, settings, metered=True)
     )
 
 
@@ -117,88 +130,117 @@ def chat(
     context: Annotated[AuthContext, Depends(require_student)],
     settings: Annotated[LLMQuotaSettings, Depends(get_llm_quota_settings)],
 ) -> AssistantResponse:
-    """
-    Main AI assistant endpoint.
+    """Build authoritative context, meter one real call, and return Azure output."""
 
-    The backend picks the LLM provider (Azure or mock) from the
-    LLM_PROVIDER environment variable — the frontend never touches
-    credentials.
-    """
-    history = [message.model_dump() for message in request.history]
+    history = bounded_complete_history(request.history)
+
     try:
         client = get_llm_client()
-        provider = get_llm_provider_name()
-    except LLMError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from None
-
-    reservation = None
-    estimated_input = 0
-    if provider != "mock":
-        estimated_input = estimate_input_tokens(
+        student_context = StudentAIContextAssembler(db).build(
+            context,
+            message=request.message,
+            draft_policy_code=request.draft_policy_code,
+            draft_params=request.draft_params,
+        )
+        prepared_messages = build_llm_messages(
             request.message,
             history,
-            request.context,
+            student_context,
         )
-        try:
-            reservation = reserve_llm_call(
-                db,
-                context.user.id,
-                estimated_input,
-                settings,
-            )
-        except LLMQuotaExceeded as exc:
-            raise HTTPException(
-                status_code=429,
-                detail={
-                    "code": "daily_ai_limit_reached",
-                    "limit_type": exc.limit_type,
-                    "message": str(exc),
-                    "resets_at": exc.resets_at.isoformat(),
-                },
-            ) from None
-        except SQLAlchemyError:
-            db.rollback()
-            raise HTTPException(
-                status_code=503,
-                detail="AI usage accounting is temporarily unavailable.",
-            ) from None
+        estimated_input = estimate_messages_tokens(prepared_messages)
+        validate_llm_client_request(
+            client,
+            message=request.message,
+            history=history,
+            context=student_context,
+            max_output_tokens=settings.max_llm_output_tokens_per_call,
+        )
+    except LLMConfigurationError as exc:
+        logger.error(
+            "AI provider configuration/preflight failed",
+            extra={"exception_class": type(exc.__cause__ or exc).__name__},
+        )
+        raise _temporarily_unavailable() from None
+    except Exception:
+        db.rollback()
+        logger.exception("Student AI context preparation failed")
+        raise _temporarily_unavailable() from None
+
+    try:
+        reservation = reserve_llm_call(
+            db,
+            context.user.id,
+            estimated_input,
+            settings,
+        )
+    except LLMQuotaExceeded as exc:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail={
+                "code": "daily_ai_limit_reached",
+                "limit_type": exc.limit_type,
+                "message": str(exc),
+                "resets_at": exc.resets_at.isoformat(),
+            },
+        ) from None
+    except SQLAlchemyError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="AI usage accounting is temporarily unavailable.",
+        ) from None
 
     try:
         result = client.generate_response(
             message=request.message,
             history=history,
-            context=request.context,
+            context=student_context,
             max_output_tokens=settings.max_llm_output_tokens_per_call,
         )
-    except LLMError as e:
-        raise HTTPException(status_code=502, detail=str(e))
+    except LLMProviderError as exc:
+        logger.error(
+            "Azure AI provider request failed",
+            extra={
+                "exception_class": exc.exception_class,
+                "provider_status": exc.status_code,
+                "provider_code": exc.provider_code,
+                "provider_message": exc.sanitized_message,
+            },
+        )
+        raise _temporarily_unavailable() from None
+    except Exception as exc:
+        # The prompt and adapter signature were preflighted before reservation.
+        # This guard prevents unstructured errors without logging request data.
+        logger.error(
+            "AI provider dispatch failed unexpectedly",
+            extra={"exception_class": type(exc).__name__},
+        )
+        raise _temporarily_unavailable() from None
 
-    if reservation is not None:
-        actual_input = result.input_tokens or estimated_input
-        actual_output = result.output_tokens
-        if actual_output is None:
-            actual_output = estimate_text_tokens(result.content)
-        try:
-            reconcile_llm_call(
-                db,
-                reservation,
-                actual_input_tokens=actual_input,
-                actual_output_tokens=actual_output,
-                settings=settings,
-            )
-        except SQLAlchemyError:
-            # The committed worst-case reservation remains a safe conservative
-            # record if post-provider reconciliation is temporarily unavailable.
-            db.rollback()
+    actual_input = result.input_tokens or estimated_input
+    actual_output = result.output_tokens
+    if actual_output is None:
+        actual_output = estimate_text_tokens(result.content)
+    try:
+        reconcile_llm_call(
+            db,
+            reservation,
+            actual_input_tokens=actual_input,
+            actual_output_tokens=actual_output,
+            settings=settings,
+        )
+    except SQLAlchemyError:
+        # The committed worst-case reservation remains a conservative record.
+        db.rollback()
 
     current_usage = get_usage_status(
         db,
         context.user.id,
         settings,
-        metered=provider != "mock",
+        metered=True,
     )
     return AssistantResponse(
         content=result.content,
-        provider=result.provider,
+        provider="azure",
         usage=AssistantUsageResponse.from_status(current_usage),
     )

@@ -17,7 +17,7 @@ from app.core.auth import AuthContext
 from app.core.config import LLMQuotaSettings
 from app.models import LLMDailyUsage, User
 from app.routers import ai_assistant
-from app.services.llm_client import LLMResult
+from app.services.llm_client import AzureLLMClient, LLMResult
 from app.services.llm_quota import (
     LLMQuotaExceeded,
     UsageReservation,
@@ -145,11 +145,22 @@ def test_route_enforces_output_limit_and_returns_structured_usage(monkeypatch):
     db = SimpleNamespace()
     settings = _settings()
     captured = {}
+    reconciled = {}
 
-    class FakeClient:
-        def generate_response(self, **kwargs):
+    class FakeCompletions:
+        def create(self, **kwargs):
             captured.update(kwargs)
-            return LLMResult("answer", "azure", input_tokens=12, output_tokens=5)
+            return SimpleNamespace(
+                choices=[SimpleNamespace(message=SimpleNamespace(content=" answer "))],
+                usage=SimpleNamespace(prompt_tokens=12, completion_tokens=5),
+            )
+
+    client = AzureLLMClient.__new__(AzureLLMClient)
+    client._endpoint = "https://example.invalid/openai/v1"
+    client._deployment = "test-deployment"
+    client._client = SimpleNamespace(
+        chat=SimpleNamespace(completions=FakeCompletions())
+    )
 
     reservation = UsageReservation(
         user_id=user.id,
@@ -158,11 +169,19 @@ def test_route_enforces_output_limit_and_returns_structured_usage(monkeypatch):
         reserved_cost=Decimal("0.001"),
         resets_at=datetime.now(UTC) + timedelta(days=1),
     )
-    monkeypatch.setattr(ai_assistant, "get_llm_client", lambda: FakeClient())
-    monkeypatch.setattr(ai_assistant, "get_llm_provider_name", lambda: "azure")
-    monkeypatch.setattr(ai_assistant, "estimate_input_tokens", lambda *args: 10)
+    monkeypatch.setattr(ai_assistant, "get_llm_client", lambda: client)
+    monkeypatch.setattr(
+        ai_assistant,
+        "StudentAIContextAssembler",
+        lambda db: SimpleNamespace(build=lambda *args, **kwargs: {"scope": "own"}),
+    )
+    monkeypatch.setattr(ai_assistant, "estimate_messages_tokens", lambda *args: 10)
     monkeypatch.setattr(ai_assistant, "reserve_llm_call", lambda *args, **kwargs: reservation)
-    monkeypatch.setattr(ai_assistant, "reconcile_llm_call", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        ai_assistant,
+        "reconcile_llm_call",
+        lambda *args, **kwargs: reconciled.update(kwargs),
+    )
     monkeypatch.setattr(
         ai_assistant,
         "get_usage_status",
@@ -170,12 +189,20 @@ def test_route_enforces_output_limit_and_returns_structured_usage(monkeypatch):
     )
 
     response = ai_assistant.chat(
-        ai_assistant.AssistantRequest(message="help"),
+        ai_assistant.AssistantRequest(
+            message="help",
+            draft_policy_code="def admission_policy(*args): return 0",
+        ),
         db,
         context,
         settings,
     )
-    assert captured["max_output_tokens"] == 500
+    assert captured["max_completion_tokens"] == 500
+    assert captured["model"] == "test-deployment"
+    assert response.content == "answer"
+    assert response.provider == "azure"
+    assert reconciled["actual_input_tokens"] == 12
+    assert reconciled["actual_output_tokens"] == 5
     assert response.usage.calls_used == 1
 
 
@@ -193,8 +220,12 @@ def test_quota_rejection_is_structured_and_never_calls_provider(monkeypatch):
 
     resets_at = datetime.now(UTC) + timedelta(days=1)
     monkeypatch.setattr(ai_assistant, "get_llm_client", lambda: FakeClient())
-    monkeypatch.setattr(ai_assistant, "get_llm_provider_name", lambda: "azure")
-    monkeypatch.setattr(ai_assistant, "estimate_input_tokens", lambda *args: 10)
+    monkeypatch.setattr(
+        ai_assistant,
+        "StudentAIContextAssembler",
+        lambda db: SimpleNamespace(build=lambda *args, **kwargs: {"scope": "own"}),
+    )
+    monkeypatch.setattr(ai_assistant, "estimate_messages_tokens", lambda *args: 10)
     monkeypatch.setattr(
         ai_assistant,
         "reserve_llm_call",
@@ -203,7 +234,10 @@ def test_quota_rejection_is_structured_and_never_calls_provider(monkeypatch):
 
     with pytest.raises(HTTPException) as exc_info:
         ai_assistant.chat(
-            ai_assistant.AssistantRequest(message="help"),
+            ai_assistant.AssistantRequest(
+                message="help",
+                draft_policy_code="def admission_policy(*args): return 0",
+            ),
             SimpleNamespace(),
             context,
             settings,
@@ -214,33 +248,54 @@ def test_quota_rejection_is_structured_and_never_calls_provider(monkeypatch):
     assert called is False
 
 
-def test_mock_agent_does_not_reserve_paid_usage(monkeypatch):
-    user = User(id=uuid.uuid4(), berkeley_username="quota-mock")
+def test_adapter_contract_error_is_detected_before_quota_reservation(monkeypatch):
+    user = User(id=uuid.uuid4(), berkeley_username="quota-preflight")
     context = AuthContext(user=user)
-    settings = _settings()
 
-    class FakeMockClient:
-        def generate_response(self, **kwargs):
-            return LLMResult("mock answer", "mock")
+    class InvalidAdapter:
+        def generate_response(self, message):
+            return LLMResult("unexpected", "azure")
 
-    monkeypatch.setattr(ai_assistant, "get_llm_client", lambda: FakeMockClient())
-    monkeypatch.setattr(ai_assistant, "get_llm_provider_name", lambda: "mock")
+    monkeypatch.setattr(ai_assistant, "get_llm_client", lambda: InvalidAdapter())
+    monkeypatch.setattr(
+        ai_assistant,
+        "StudentAIContextAssembler",
+        lambda db: SimpleNamespace(build=lambda *args, **kwargs: {"scope": "own"}),
+    )
+    monkeypatch.setattr(ai_assistant, "estimate_messages_tokens", lambda *args: 10)
     monkeypatch.setattr(
         ai_assistant,
         "reserve_llm_call",
-        lambda *args, **kwargs: pytest.fail("mock must not reserve paid quota"),
-    )
-    monkeypatch.setattr(
-        ai_assistant,
-        "get_usage_status",
-        lambda *args, **kwargs: UsageStatus(0, 50, datetime.now(UTC) + timedelta(days=1), False),
+        lambda *args, **kwargs: pytest.fail("pre-dispatch failure must not reserve quota"),
     )
 
-    response = ai_assistant.chat(
-        ai_assistant.AssistantRequest(message="help"),
-        SimpleNamespace(),
-        context,
-        settings,
-    )
-    assert response.provider == "mock"
-    assert response.usage.metered is False
+    with pytest.raises(HTTPException) as exc_info:
+        ai_assistant.chat(
+            ai_assistant.AssistantRequest(
+                message="help",
+                draft_policy_code="def admission_policy(*args): return 0",
+            ),
+            SimpleNamespace(rollback=lambda: None),
+            context,
+            _settings(),
+        )
+    assert exc_info.value.status_code == 502
+
+
+def test_conversation_history_keeps_only_latest_six_complete_turns():
+    history = []
+    for number in range(1, 9):
+        history.extend(
+            [
+                ai_assistant.ChatMessage(role="user", content=f"user-{number}"),
+                ai_assistant.ChatMessage(role="assistant", content=f"assistant-{number}"),
+            ]
+        )
+    history.append(ai_assistant.ChatMessage(role="user", content="unanswered"))
+
+    bounded = ai_assistant.bounded_complete_history(history)
+
+    assert len(bounded) == 12
+    assert bounded[0] == {"role": "user", "content": "user-3"}
+    assert bounded[-1] == {"role": "assistant", "content": "assistant-8"}
+    assert all(item["content"] != "unanswered" for item in bounded)

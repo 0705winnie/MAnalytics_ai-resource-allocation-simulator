@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  boundedCompleteHistory,
   getOfficialSimulationSession,
   OfficialSimulationApiError,
   postRunNextMonth,
+  type ChatMessage,
 } from './api'
 import { officialSession } from '../test/fixtures'
 
@@ -62,5 +64,25 @@ describe('official simulation API client', () => {
     expect(error.code).toBe('wrong_expected_month')
     expect(error.message).toBe('Refresh the official session')
     expect(error).not.toHaveProperty('context')
+  })
+})
+
+describe('boundedCompleteHistory', () => {
+  it('sends only the latest six complete student/assistant turns', () => {
+    const history: ChatMessage[] = []
+    for (let number = 1; number <= 8; number += 1) {
+      history.push(
+        { role: 'user', content: `user-${number}` },
+        { role: 'assistant', content: `assistant-${number}` },
+      )
+    }
+    history.push({ role: 'user', content: 'unanswered' })
+
+    const bounded = boundedCompleteHistory(history)
+
+    expect(bounded).toHaveLength(12)
+    expect(bounded[0].content).toBe('user-3')
+    expect(bounded.at(-1)?.content).toBe('assistant-8')
+    expect(bounded.some((message) => message.content === 'unanswered')).toBe(false)
   })
 })

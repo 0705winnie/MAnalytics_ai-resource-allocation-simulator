@@ -128,7 +128,7 @@ function Leaderboard({ kind }: { kind: 'same-stage' | 'final' }) {
   }, [kind, requestVersion])
 
   return (
-    <SectionCard title={`${kind === 'same-stage' ? 'Same-Stage' : 'Final'} Leaderboard`}>
+    <SectionCard title={`${kind === 'same-stage' ? 'Same-Month' : 'Final'} Leaderboard`}>
       {loading && <p className="text-sm" aria-live="polite">Loading leaderboard…</p>}
       {!loading && error && (
         <div>
@@ -139,7 +139,7 @@ function Leaderboard({ kind }: { kind: 'same-stage' | 'final' }) {
       {!loading && !error && data && (
         <>
           {kind === 'same-stage' && data.stage === 0 && (
-            <p className="text-sm text-ink-faint">Complete Month 1 to join and view a same-stage ranking.</p>
+            <p className="text-sm text-ink-faint">Complete Month 1 to join and view a same-month ranking.</p>
           )}
           {kind === 'final' && data.current_user_eligible === false && (
             <p className="mb-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
@@ -147,7 +147,7 @@ function Leaderboard({ kind }: { kind: 'same-stage' | 'final' }) {
             </p>
           )}
           {data.stage > 0 && data.items.length === 0 && (
-            <p className="text-sm text-ink-faint">No eligible students have completed this stage yet.</p>
+            <p className="text-sm text-ink-faint">No eligible students have completed this month yet.</p>
           )}
           {data.items.length > 0 && (
             <div className="overflow-x-auto">
@@ -156,7 +156,9 @@ function Leaderboard({ kind }: { kind: 'same-stage' | 'final' }) {
                   <th className="py-3 pr-4 font-medium">Rank</th>
                   <th className="py-3 pr-4 font-medium">Nickname</th>
                   <th className="py-3 pr-4 font-medium">Current Progress</th>
-                  <th className="py-3 pr-4 font-medium">Revenue through Stage {data.stage}</th>
+                  <th className="py-3 pr-4 font-medium">
+                    {kind === 'final' ? 'Total Revenue (12 Months)' : `Revenue through Month ${data.stage}`}
+                  </th>
                   <th className="py-3 pr-4 font-medium">Last Activity</th>
                 </tr></thead>
                 <tbody>{data.items.map((entry) => (
@@ -202,7 +204,7 @@ export default function LeaderboardPage({ nickname, session }: Props) {
       <div className="flex flex-wrap gap-2" role="tablist" aria-label="History and leaderboard views">
         {([
           ['history', 'Simulation History'],
-          ['same-stage', 'Same-Stage Leaderboard'],
+          ['same-stage', 'Same-Month Leaderboard'],
           ['final', 'Final Leaderboard'],
         ] as const).map(([key, label]) => (
           <button

@@ -1,24 +1,41 @@
-"""
-LLM client wrapper for the dashboard AI assistant.
-
-The frontend never sees API keys. The backend chooses the provider from
-LLM_PROVIDER:
-    LLM_PROVIDER=mock   -> deterministic rule-based assistant
-    LLM_PROVIDER=azure  -> Azure OpenAI / Azure AI Foundry
-"""
+"""Azure/OpenAI client wrapper for the student AI assistant."""
 
 from __future__ import annotations
 
+import inspect
 import os
+import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import Any
 
-from app.services.mock_agent import get_mock_response
 from app.services.prompt_templates import build_system_prompt
 
 
 class LLMError(Exception):
-    """Raised when an LLM call fails in a way the API endpoint should handle."""
+    """Base class for safe application-level LLM failures."""
+
+
+class LLMConfigurationError(LLMError):
+    """The real provider cannot be called because local configuration is invalid."""
+
+
+class LLMProviderError(LLMError):
+    """A sanitized provider failure suitable for structured server logging."""
+
+    def __init__(
+        self,
+        *,
+        exception_class: str,
+        status_code: int | None,
+        provider_code: str | None,
+        sanitized_message: str,
+    ) -> None:
+        super().__init__("AI provider request failed")
+        self.exception_class = exception_class
+        self.status_code = status_code
+        self.provider_code = provider_code
+        self.sanitized_message = sanitized_message
 
 
 @dataclass(frozen=True)
@@ -30,7 +47,7 @@ class LLMResult:
 
 
 class BaseLLMClient(ABC):
-    """Shared interface for real and mock assistant clients."""
+    """Shared contract retained for a small, testable provider boundary."""
 
     @abstractmethod
     def generate_response(
@@ -40,11 +57,11 @@ class BaseLLMClient(ABC):
         context: dict | None = None,
         max_output_tokens: int = 500,
     ) -> LLMResult:
-        """Return public content/provider plus internal token usage."""
+        """Generate one real-provider response."""
 
 
 class AzureLLMClient(BaseLLMClient):
-    """Calls Azure OpenAI using the official openai Python package."""
+    """Call Azure OpenAI using the official OpenAI Python package."""
 
     def __init__(self) -> None:
         self._endpoint = os.environ.get("AZURE_OPENAI_ENDPOINT", "").strip().rstrip("/")
@@ -53,63 +70,30 @@ class AzureLLMClient(BaseLLMClient):
         self._api_version = os.environ.get("AZURE_OPENAI_API_VERSION", "2024-02-01").strip()
 
         if not self._endpoint:
-            raise LLMError(
-                "AZURE_OPENAI_ENDPOINT is not set. Add it to your .env file, "
-                "or set LLM_PROVIDER=mock to run locally."
-            )
+            raise LLMConfigurationError("AZURE_OPENAI_ENDPOINT is not configured")
         if not self._api_key:
-            raise LLMError(
-                "AZURE_OPENAI_API_KEY is not set. Add it to your .env file, "
-                "or set LLM_PROVIDER=mock to run locally."
-            )
+            raise LLMConfigurationError("AZURE_OPENAI_API_KEY is not configured")
+        if not self._deployment:
+            raise LLMConfigurationError("AZURE_OPENAI_DEPLOYMENT is not configured")
 
         try:
             from openai import AzureOpenAI, OpenAI
-        except ImportError as e:
-            raise LLMError("The 'openai' package is not installed. Run: pip install openai") from e
-
-        if self._uses_azure_v1_endpoint():
-            self._client = OpenAI(base_url=self._endpoint, api_key=self._api_key)
-        else:
-            self._client = AzureOpenAI(
-                azure_endpoint=self._endpoint,
-                api_key=self._api_key,
-                api_version=self._api_version,
-            )
-
-    def generate_response(
-        self,
-        message: str,
-        history: list[dict] | None = None,
-        context: dict | None = None,
-    ) -> dict:
-        messages = build_llm_messages(message, history, context)
+        except ImportError as exc:
+            raise LLMConfigurationError("The OpenAI provider package is unavailable") from exc
 
         try:
-            response = self._client.chat.completions.create(
-                model=self._deployment,
-                messages=messages,
-                max_tokens=max_output_tokens,
-                temperature=0.3,
-            )
-        except Exception as e:
-            raise LLMError(f"Azure OpenAI API call failed: {e}") from e
-
-        content = response.choices[0].message.content or ""
-        usage = getattr(response, "usage", None)
-        return LLMResult(
-            content=content.strip(),
-            provider="azure",
-            input_tokens=getattr(usage, "prompt_tokens", None),
-            output_tokens=getattr(usage, "completion_tokens", None),
-        )
-
-    def _uses_azure_v1_endpoint(self) -> bool:
-        return self._endpoint.endswith("/openai/v1")
-
-
-class MockLLMClient(BaseLLMClient):
-    """Uses the comprehensive rule-based Stream D mock agent."""
+            if self._uses_azure_v1_endpoint():
+                self._client = OpenAI(base_url=self._endpoint, api_key=self._api_key)
+            else:
+                self._client = AzureOpenAI(
+                    azure_endpoint=self._endpoint,
+                    api_key=self._api_key,
+                    api_version=self._api_version,
+                )
+        except Exception as exc:
+            raise LLMConfigurationError(
+                f"Provider client initialization failed ({type(exc).__name__})"
+            ) from exc
 
     def generate_response(
         self,
@@ -118,9 +102,42 @@ class MockLLMClient(BaseLLMClient):
         context: dict | None = None,
         max_output_tokens: int = 500,
     ) -> LLMResult:
-        response = get_mock_response(message)
-        content = _format_mock_content(response, context)
-        return LLMResult(content=content, provider="mock")
+        messages = build_llm_messages(message, history, context)
+        token_limit = (
+            {"max_completion_tokens": max_output_tokens}
+            if self._uses_azure_v1_endpoint()
+            else {"max_tokens": max_output_tokens}
+        )
+
+        try:
+            response = self._client.chat.completions.create(
+                model=self._deployment,
+                messages=messages,
+                temperature=0.3,
+                **token_limit,
+            )
+        except Exception as exc:
+            raise _provider_error(exc) from exc
+
+        try:
+            content = response.choices[0].message.content or ""
+            usage = getattr(response, "usage", None)
+            return LLMResult(
+                content=content.strip(),
+                provider="azure",
+                input_tokens=getattr(usage, "prompt_tokens", None),
+                output_tokens=getattr(usage, "completion_tokens", None),
+            )
+        except (AttributeError, IndexError, TypeError) as exc:
+            raise LLMProviderError(
+                exception_class=type(exc).__name__,
+                status_code=None,
+                provider_code="invalid_provider_response",
+                sanitized_message="Provider returned an unexpected response shape",
+            ) from exc
+
+    def _uses_azure_v1_endpoint(self) -> bool:
+        return self._endpoint.endswith("/openai/v1")
 
 
 def build_llm_messages(
@@ -138,8 +155,31 @@ def build_llm_messages(
     return messages
 
 
+def validate_llm_client_request(
+    client: BaseLLMClient,
+    *,
+    message: str,
+    history: list[dict] | None,
+    context: dict | None,
+    max_output_tokens: int,
+) -> None:
+    """Catch adapter-contract errors before a paid-call reservation is committed."""
+
+    try:
+        inspect.signature(client.generate_response).bind(
+            message=message,
+            history=history,
+            context=context,
+            max_output_tokens=max_output_tokens,
+        )
+    except TypeError as exc:
+        raise LLMConfigurationError(
+            "Provider adapter does not satisfy the application request contract"
+        ) from exc
+
+
 def estimate_text_tokens(value: str) -> int:
-    """Count with the configured model tokenizer, with a modern safe fallback."""
+    """Count with the configured deployment tokenizer and a modern fallback."""
 
     import tiktoken
 
@@ -147,10 +187,12 @@ def estimate_text_tokens(value: str) -> int:
     try:
         encoding = tiktoken.encoding_for_model(deployment)
     except KeyError:
-        # Azure deployment aliases may not be public model names. Current 4o/4.1
-        # families use o200k_base, making it the most reliable local fallback.
         encoding = tiktoken.get_encoding("o200k_base")
     return len(encoding.encode(value))
+
+
+def estimate_messages_tokens(messages: list[dict[str, str]]) -> int:
+    return 2 + sum(4 + estimate_text_tokens(item["content"]) for item in messages)
 
 
 def estimate_input_tokens(
@@ -158,47 +200,48 @@ def estimate_input_tokens(
     history: list[dict] | None = None,
     context: dict | None = None,
 ) -> int:
-    # Four tokens per message plus a small assistant-priming allowance follows
-    # OpenAI's documented chat-message counting convention.
-    messages = build_llm_messages(message, history, context)
-    return 2 + sum(4 + estimate_text_tokens(item["content"]) for item in messages)
+    return estimate_messages_tokens(build_llm_messages(message, history, context))
 
 
-def _format_mock_content(response: dict[str, object], context: dict | None = None) -> str:
-    """Convert the structured mock-agent response into dashboard chat text."""
-    parts: list[str] = []
+def get_llm_client() -> AzureLLMClient:
+    """Return the product's only production provider."""
 
-    if context and context.get("current_month"):
-        parts.append(f"*(Month {context['current_month']} - mock mode)*")
+    return AzureLLMClient()
 
-    message = str(response.get("message", "")).strip()
-    if message:
-        parts.append(message)
 
-    follow_ups = response.get("follow_up_questions") or []
-    if follow_ups:
-        parts.append(
-            "Questions to consider:\n"
-            + "\n".join(f"- {question}" for question in follow_ups)
+def _provider_error(exc: Exception) -> LLMProviderError:
+    status_code = getattr(exc, "status_code", None)
+    if status_code is None:
+        status_code = getattr(getattr(exc, "response", None), "status_code", None)
+
+    provider_code = getattr(exc, "code", None)
+    body = getattr(exc, "body", None)
+    if provider_code is None and isinstance(body, dict):
+        nested = body.get("error")
+        provider_code = (
+            nested.get("code")
+            if isinstance(nested, dict)
+            else body.get("code")
         )
 
-    return "\n\n".join(parts).strip()
+    return LLMProviderError(
+        exception_class=type(exc).__name__,
+        status_code=int(status_code) if status_code is not None else None,
+        provider_code=str(provider_code) if provider_code is not None else None,
+        sanitized_message=_sanitize_provider_message(str(exc)),
+    )
 
 
-def get_llm_client() -> BaseLLMClient:
-    """Read LLM_PROVIDER and return the matching client."""
-    provider = get_llm_provider_name()
-
-    if provider == "mock":
-        return MockLLMClient()
-    if provider == "azure":
-        return AzureLLMClient()
-
-    raise LLMError(f"Unknown LLM_PROVIDER='{provider}'. Valid values: 'azure', 'mock'.")
-
-
-def get_llm_provider_name() -> str:
-    provider = os.environ.get("LLM_PROVIDER", "azure").strip().lower()
-    if provider not in {"azure", "mock"}:
-        raise LLMError(f"Unknown LLM_PROVIDER='{provider}'. Valid values: 'azure', 'mock'.")
-    return provider
+def _sanitize_provider_message(message: str) -> str:
+    sanitized = " ".join(message.split())
+    for name in (
+        "AZURE_OPENAI_API_KEY",
+        "AZURE_OPENAI_ENDPOINT",
+        "DATABASE_URL",
+        "JWT_SECRET",
+    ):
+        value = os.environ.get(name)
+        if value:
+            sanitized = sanitized.replace(value, "[REDACTED]")
+    sanitized = re.sub(r"https?://[^\s]+", "[REDACTED_URL]", sanitized)
+    return sanitized[:400]

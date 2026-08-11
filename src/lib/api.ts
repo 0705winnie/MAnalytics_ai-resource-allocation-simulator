@@ -14,16 +14,13 @@ export interface ChatMessage {
 export interface AssistantRequest {
   message: string
   history: ChatMessage[]
-  context?: {
-    current_month?: number
-    remaining_capacity?: Record<number, number>
-    monthly_result?: Record<string, unknown>
-  } | null
+  draft_policy_code: string
+  draft_params: Record<string, number>
 }
 
 export interface AssistantResponse {
   content: string
-  provider: 'azure' | 'mock'
+  provider: 'azure'
   usage: AssistantUsage
 }
 
@@ -32,6 +29,23 @@ export interface AssistantUsage {
   calls_limit: number
   resets_at: string
   metered: boolean
+}
+
+export const MAX_CONVERSATION_TURNS = 6
+
+export function boundedCompleteHistory(history: ChatMessage[]): ChatMessage[] {
+  const turns: Array<[ChatMessage, ChatMessage]> = []
+  for (let index = 0; index < history.length - 1;) {
+    const first = history[index]
+    const second = history[index + 1]
+    if (first.role === 'user' && second.role === 'assistant') {
+      turns.push([first, second])
+      index += 2
+    } else {
+      index += 1
+    }
+  }
+  return turns.slice(-MAX_CONVERSATION_TURNS).flat()
 }
 
 // Thrown when the backend itself never actually handled the request — the

@@ -62,19 +62,20 @@ export default function InstructorLeaderboards({ course }: { course: InstructorC
             onClick={() => setView(key)}
             className={`rounded-md px-3 py-2 text-sm font-semibold ${view === key ? 'bg-hud-accent text-white' : 'bg-well text-ink-faint'}`}
           >
-            {key === 'same-stage' ? 'Same-Stage' : 'Final'}
+            {key === 'same-stage' ? 'Same-Month' : 'Final'}
           </button>
         ))}
         {view === 'same-stage' && (
           <label className="ml-auto text-sm text-ink-dim">
-            Stage{' '}
+            <span className="sr-only">Month</span>
             <select
+              aria-label="Month"
               value={stage}
               onChange={(event) => setStage(Number(event.target.value))}
               className="rounded-md border border-line-strong bg-white px-2 py-1"
             >
               {Array.from({ length: 12 }, (_, index) => index + 1).map((month) => (
-                <option key={month} value={month}>{month}</option>
+                <option key={month} value={month}>Month {month}</option>
               ))}
             </select>
           </label>
@@ -90,7 +91,7 @@ export default function InstructorLeaderboards({ course }: { course: InstructorC
       )}
       {!loading && !error && data && (
         data.items.length === 0 ? (
-          <p className="mt-6 text-sm text-ink-faint">No eligible students have completed this stage yet.</p>
+          <p className="mt-6 text-sm text-ink-faint">No eligible students have completed this month yet.</p>
         ) : (
           <div className="mt-6 overflow-x-auto">
             <table className="w-full text-sm">
@@ -98,7 +99,9 @@ export default function InstructorLeaderboards({ course }: { course: InstructorC
                 <th className="px-4 py-3 font-medium">Rank</th>
                 <th className="px-4 py-3 font-medium">Nickname</th>
                 <th className="px-4 py-3 font-medium">Current Progress</th>
-                <th className="px-4 py-3 font-medium">Revenue through Stage {data.stage}</th>
+                <th className="px-4 py-3 font-medium">
+                  {view === 'final' ? 'Total Revenue (12 Months)' : `Revenue through Month ${data.stage}`}
+                </th>
                 <th className="px-4 py-3 font-medium">Last Activity</th>
               </tr></thead>
               <tbody>{data.items.map((entry) => (

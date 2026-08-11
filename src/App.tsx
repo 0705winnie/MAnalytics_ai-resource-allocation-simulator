@@ -17,7 +17,7 @@ export default function App() {
   const [policyCode, setPolicyCode] = useState(POLICY_TEMPLATE)
   const [policyParams, setPolicyParams] = useState<PolicyParams>({})
   const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [provider, setProvider] = useState<'azure' | 'mock' | undefined>(undefined)
+  const [provider, setProvider] = useState<'azure' | undefined>(undefined)
   const [officialSession, setOfficialSession] = useState<OfficialSimulationSession | null>(null)
   const [restorationStatus, setRestorationStatus] = useState<RestorationStatus>('loading')
   const [restorationError, setRestorationError] = useState<string | null>(null)

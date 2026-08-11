@@ -73,8 +73,8 @@ ai-resource-allocation-simulator/
         simulation_engine.py        # Poisson arrivals, Gamma durations, capacity/departure tracking
         baseline_policies.py        # Benchmark policies for student-policy comparison
         policy_sandbox.py           # Restricted exec() of student admission_policy code
-        llm_client.py               # Azure + mock LLM clients; provider via LLM_PROVIDER
-        mock_agent.py                # Deterministic teaching assistant for mock mode
+        llm_client.py               # Real Azure/OpenAI provider adapter
+        student_ai_context.py       # Auth-scoped official student AI context
         prompt_templates.py         # Assistant system prompts and guardrails
         activation_codes.py         # Activation-code generation/hash/verify
         activation_completion.py    # First-time activation transaction (password + nickname)
@@ -205,8 +205,7 @@ sections that follow.
 | `ACCESS_TOKEN_MINUTES` | Optional | Access-token lifetime; default 30, allowed range 5–1440. |
 | `ACTIVATION_TOKEN_MINUTES` | Optional | Activation-session lifetime; default 10, allowed range 5–30. |
 | `FRONTEND_ORIGIN` | Backend startup | The single origin allowed by CORS with credentials; `http://localhost:5173` for local dev. This is the variable that actually controls CORS — the older `CORS_ALLOW_ORIGINS` name still present in `.env.example` is not read by the current backend. |
-| `LLM_PROVIDER` | AI assistant | `mock` (no API key, scripted responses) or `azure` (real Azure OpenAI). |
-| `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_DEPLOYMENT`, `AZURE_OPENAI_API_VERSION` | Only when `LLM_PROVIDER=azure` | Azure OpenAI / AI Foundry credentials and deployment. |
+| `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_DEPLOYMENT`, `AZURE_OPENAI_API_VERSION` | AI assistant | Azure OpenAI / AI Foundry credentials and deployment. All product AI responses use this real provider. |
 
 ### PostgreSQL for local development
 
@@ -470,24 +469,19 @@ instructor layout (instructor).
 
 ## Environment / AI assistant configuration
 
-The `LLM_PROVIDER`/`AZURE_OPENAI_*` variables were already added to `.env` in
+The `AZURE_OPENAI_*` variables were already added to `.env` in
 [Setup](#environment-variables-reference) above; this section covers what
 they do:
 
 ```text
-# "mock" works locally with no API key and no network calls.
-LLM_PROVIDER=mock
-
-# Required only when LLM_PROVIDER=azure:
+# Required by the AI assistant:
 AZURE_OPENAI_ENDPOINT=https://YOUR-RESOURCE-NAME.openai.azure.com/openai/v1
 AZURE_OPENAI_API_KEY=your-azure-api-key-here
 AZURE_OPENAI_DEPLOYMENT=gpt-4.1-mini
 AZURE_OPENAI_API_VERSION=v1
 ```
 
-With `LLM_PROVIDER=mock`, `POST /ai-assistant` returns scripted keyword-matched
-teaching responses; no API key needed. Set `LLM_PROVIDER=azure` and fill in
-the `AZURE_OPENAI_*` variables to use a real Azure OpenAI / AI Foundry model.
+`POST /ai-assistant` always uses the real Azure OpenAI / AI Foundry provider.
 The backend supports the Azure `/openai/v1` endpoint form shown above.
 (Plain, non-Azure OpenAI is not currently supported.)
 
