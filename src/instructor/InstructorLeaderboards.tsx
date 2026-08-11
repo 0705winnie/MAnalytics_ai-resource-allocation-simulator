@@ -21,7 +21,7 @@ function formatTimestamp(value: string | null): string {
 
 export default function InstructorLeaderboards({ course }: { course: InstructorCourse }) {
   const { refreshAuth } = useAuth()
-  const [view, setView] = useState<View>('same-stage')
+  const [view, setView] = useState<View>('final')
   const [stage, setStage] = useState(1)
   const [data, setData] = useState<InstructorLeaderboardResponse | null>(null)
   const [loading, setLoading] = useState(true)
@@ -55,7 +55,7 @@ export default function InstructorLeaderboards({ course }: { course: InstructorC
   return (
     <section className="mt-6 rounded-xl border border-line bg-white p-6 shadow-card">
       <div className="flex flex-wrap items-center gap-3">
-        {(['same-stage', 'final'] as const).map((key) => (
+        {(['final', 'same-stage'] as const).map((key) => (
           <button
             key={key}
             type="button"

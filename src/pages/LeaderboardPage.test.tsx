@@ -87,6 +87,10 @@ describe('persisted Simulation History and real leaderboards', () => {
     })
     render(<LeaderboardPage nickname="Real Nickname" session={officialSession(2)} />)
 
+    const viewTabs = screen.getAllByRole('tab')
+    expect(viewTabs[0].textContent).toBe('Simulation History')
+    expect(viewTabs[1].textContent).toBe('Same-Month Leaderboard')
+    expect(viewTabs[2].textContent).toBe('Final Leaderboard')
     await userEvent.click(screen.getByRole('tab', { name: 'Same-Month Leaderboard' }))
 
     expect(await screen.findByText('Same-Month Leaderboard')).toBeTruthy()

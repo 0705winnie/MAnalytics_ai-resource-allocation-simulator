@@ -12,6 +12,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
+DEFAULT_LLM_OUTPUT_TOKEN_SAFETY_CEILING = 4_000
 
 
 class DatabaseSettings(BaseSettings):
@@ -108,7 +109,12 @@ class LLMQuotaSettings(BaseSettings):
 
     max_llm_calls_per_day: int = Field(default=50, ge=1)
     max_llm_input_tokens_per_day: int = Field(default=100_000, ge=1)
-    max_llm_output_tokens_per_call: int = Field(default=500, ge=1)
+    # Provider-side runaway safeguard, not a student-facing quota. Daily call,
+    # input-token, and estimated-cost limits remain the product guardrails.
+    llm_output_token_safety_ceiling: int = Field(
+        default=DEFAULT_LLM_OUTPUT_TOKEN_SAFETY_CEILING,
+        ge=1,
+    )
     max_llm_estimated_cost_per_day: Decimal = Field(default=Decimal("0.25"), gt=0)
     llm_usage_timezone: str = "America/Los_Angeles"
     # Conservative defaults match the documented gpt-4.1-mini deployment in

@@ -139,7 +139,7 @@ def test_concurrent_requests_cannot_bypass_one_call_limit(test_engine):
         _clear(factory)
 
 
-def test_route_enforces_output_limit_and_returns_structured_usage(monkeypatch):
+def test_route_uses_safety_ceiling_and_returns_structured_usage(monkeypatch):
     user = User(id=uuid.uuid4(), berkeley_username="quota-route")
     context = AuthContext(user=user)
     db = SimpleNamespace()
@@ -151,7 +151,10 @@ def test_route_enforces_output_limit_and_returns_structured_usage(monkeypatch):
         def create(self, **kwargs):
             captured.update(kwargs)
             return SimpleNamespace(
-                choices=[SimpleNamespace(message=SimpleNamespace(content=" answer "))],
+                choices=[SimpleNamespace(
+                    message=SimpleNamespace(content=" answer "),
+                    finish_reason="length",
+                )],
                 usage=SimpleNamespace(prompt_tokens=12, completion_tokens=5),
             )
 
@@ -197,13 +200,23 @@ def test_route_enforces_output_limit_and_returns_structured_usage(monkeypatch):
         context,
         settings,
     )
-    assert captured["max_completion_tokens"] == 500
+    assert captured["max_completion_tokens"] == 4_000
     assert captured["model"] == "test-deployment"
     assert response.content == "answer"
     assert response.provider == "azure"
+    assert response.response_limited is True
     assert reconciled["actual_input_tokens"] == 12
     assert reconciled["actual_output_tokens"] == 5
     assert response.usage.calls_used == 1
+
+
+def test_daily_quota_defaults_remain_unchanged_with_generous_output_safety_ceiling():
+    settings = _settings()
+
+    assert settings.max_llm_calls_per_day == 50
+    assert settings.max_llm_input_tokens_per_day == 100_000
+    assert settings.max_llm_estimated_cost_per_day == Decimal("0.25")
+    assert settings.llm_output_token_safety_ceiling == 4_000
 
 
 def test_quota_rejection_is_structured_and_never_calls_provider(monkeypatch):

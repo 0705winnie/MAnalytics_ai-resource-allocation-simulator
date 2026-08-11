@@ -9,11 +9,11 @@ interface Props {
   onNavigate: (page: Page) => void
 }
 
-const TABS: { page: Page; label: string }[] = [
+export const TABS: { page: Page; label: string }[] = [
   { page: 1, label: '01  Introduction' },
   { page: 2, label: '02  Policy & AI' },
   { page: 3, label: '03  Simulation' },
-  { page: 4, label: '04  History' },
+  { page: 4, label: '04  History & Leaderboards' },
 ]
 
 export default function NavBar({ currentPage, onNavigate }: Props) {

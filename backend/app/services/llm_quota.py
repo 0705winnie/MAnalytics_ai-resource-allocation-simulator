@@ -121,7 +121,7 @@ def reserve_llm_call(
 
     reserved_cost = estimated_cost(
         input_tokens,
-        settings.max_llm_output_tokens_per_call,
+        settings.llm_output_token_safety_ceiling,
         settings,
     )
     if usage.call_count >= settings.max_llm_calls_per_day:

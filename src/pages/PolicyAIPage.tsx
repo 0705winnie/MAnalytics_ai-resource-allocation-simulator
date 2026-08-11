@@ -51,11 +51,11 @@ const SUGGESTED_PROMPTS = [
   'Help me write a type-priority routing rule in Python.',
 ]
 
-const CHECKLIST = [
-  { done: true,  text: 'Always return 0 if no cluster has enough capacity - never return an infeasible cluster id.' },
-  { done: false, text: 'Prioritise VIP over Economy when capacity is scarce - they earn more per completed unit.' },
-  { done: false, text: 'Try a capacity guard: reject Economy requests when feasible clusters would be left with very little spare capacity.' },
-  { done: false, text: 'Route to the least-loaded cluster rather than always Cluster 1 to avoid load imbalance.' },
+const POLICY_DESIGN_TIPS = [
+  'Return `0` when no cluster has sufficient capacity.',
+  'Consider prioritizing higher-value requests when capacity is scarce.',
+  'Consider using a capacity guard for lower-value requests.',
+  'Consider load-aware routing instead of always choosing the same cluster.',
 ]
 
 // ── Sub-components ───────────────────────────────────────────────────────────
@@ -261,6 +261,7 @@ export default function PolicyAIPage({
   const [errorIsNetwork, setErrorIsNetwork] = useState(false)
   const [usage, setUsage] = useState<AssistantUsage | null>(null)
   const [quotaExhausted, setQuotaExhausted] = useState(false)
+  const [responseLimitWarning, setResponseLimitWarning] = useState<string | null>(null)
 
   const chatEndRef = useRef<HTMLDivElement>(null)
 
@@ -300,6 +301,7 @@ export default function PolicyAIPage({
     setLoading(true)
     setError(null)
     setErrorIsNetwork(false)
+    setResponseLimitWarning(null)
 
     try {
       const res = await postChat({
@@ -310,6 +312,11 @@ export default function PolicyAIPage({
       })
       onMessagesChange([...priorHistory, userMsg, { role: 'assistant', content: res.content }])
       onProviderChange(res.provider)
+      setResponseLimitWarning(
+        res.response_limited
+          ? 'Response reached the length limit. Ask the AI to continue.'
+          : null,
+      )
       setUsage(res.usage)
       setQuotaExhausted(
         res.usage.metered && res.usage.calls_used >= res.usage.calls_limit,
@@ -476,21 +483,12 @@ export default function PolicyAIPage({
             <ParamsEditor params={policyParams} onChange={onPolicyParamsChange} />
           </SectionCard>
 
-          {/* Design checklist */}
-          <SectionCard title="Design Checklist" label="Tips">
-            <ul className="space-y-2.5">
-              {CHECKLIST.map(({ done, text }) => (
-                <li key={text} className="flex gap-2.5 text-xs">
-                  <span
-                    className={`shrink-0 mt-px ${
-                      done ? 'text-hud-positive' : 'text-ink-faintest'
-                    }`}
-                  >
-                    {done ? 'check' : 'o'}
-                  </span>
-                  <span className={done ? 'text-hud-positive/70' : 'text-ink-faint'}>
-                    {text}
-                  </span>
+          {/* Informational policy tips */}
+          <SectionCard title="Policy Design Tips" label="Tips">
+            <ul className="list-disc space-y-2.5 pl-4">
+              {POLICY_DESIGN_TIPS.map((text) => (
+                <li key={text} className="text-xs leading-relaxed text-ink-faint">
+                  {text}
                 </li>
               ))}
             </ul>
@@ -614,6 +612,11 @@ export default function PolicyAIPage({
                 Daily AI assistant limit reached. Your allowance resets tomorrow.
               </p>
             )}
+            {responseLimitWarning && (
+              <p className="mb-3 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900" role="status">
+                {responseLimitWarning}
+              </p>
+            )}
             <div className="flex gap-2 items-end">
               <textarea
                 rows={2}
@@ -638,6 +641,7 @@ export default function PolicyAIPage({
                   onMessagesChange([])
                   onProviderChange(undefined)
                   setError(null)
+                  setResponseLimitWarning(null)
                 }}
                 className="mt-2 text-xs text-ink-faintest hover:text-ink-faint transition-colors"
               >

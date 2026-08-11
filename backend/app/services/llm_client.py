@@ -9,6 +9,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any
 
+from app.core.config import DEFAULT_LLM_OUTPUT_TOKEN_SAFETY_CEILING
 from app.services.prompt_templates import build_system_prompt
 
 
@@ -44,6 +45,7 @@ class LLMResult:
     provider: str
     input_tokens: int | None = None
     output_tokens: int | None = None
+    finish_reason: str | None = None
 
 
 class BaseLLMClient(ABC):
@@ -55,7 +57,7 @@ class BaseLLMClient(ABC):
         message: str,
         history: list[dict] | None = None,
         context: dict | None = None,
-        max_output_tokens: int = 500,
+        max_output_tokens: int = DEFAULT_LLM_OUTPUT_TOKEN_SAFETY_CEILING,
     ) -> LLMResult:
         """Generate one real-provider response."""
 
@@ -100,7 +102,7 @@ class AzureLLMClient(BaseLLMClient):
         message: str,
         history: list[dict] | None = None,
         context: dict | None = None,
-        max_output_tokens: int = 500,
+        max_output_tokens: int = DEFAULT_LLM_OUTPUT_TOKEN_SAFETY_CEILING,
     ) -> LLMResult:
         messages = build_llm_messages(message, history, context)
         token_limit = (
@@ -120,13 +122,15 @@ class AzureLLMClient(BaseLLMClient):
             raise _provider_error(exc) from exc
 
         try:
-            content = response.choices[0].message.content or ""
+            choice = response.choices[0]
+            content = choice.message.content or ""
             usage = getattr(response, "usage", None)
             return LLMResult(
                 content=content.strip(),
                 provider="azure",
                 input_tokens=getattr(usage, "prompt_tokens", None),
                 output_tokens=getattr(usage, "completion_tokens", None),
+                finish_reason=getattr(choice, "finish_reason", None),
             )
         except (AttributeError, IndexError, TypeError) as exc:
             raise LLMProviderError(

@@ -486,7 +486,7 @@ export default function SimulationPage({
           </h3>
           <p className="text-ink-faint text-sm max-w-2xl">
             Every month is already saved in official history. Review the persisted record on{' '}
-            <strong className="text-ink-dim">04 History</strong>.
+            <strong className="text-ink-dim">04 History &amp; Leaderboards</strong>.
           </p>
         </div>
       )}
@@ -601,7 +601,7 @@ export default function SimulationPage({
           </div>
 
           <p className="text-ink-faint text-xs">
-            Official months are saved automatically and appear on <strong className="text-ink-dim">04 History</strong>.
+            Official months are saved automatically and appear on <strong className="text-ink-dim">04 History &amp; Leaderboards</strong>.
           </p>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">

@@ -42,29 +42,30 @@ export default function InstructorLoginPage() {
     <main className="min-h-screen bg-paper text-ink">
       <div className="mx-auto flex min-h-screen w-full max-w-6xl items-center px-6 py-12">
         <div className="grid w-full overflow-hidden rounded-2xl border border-line bg-white shadow-card lg:grid-cols-[1.05fr_0.95fr]">
-          <section className="bg-gradient-to-br from-hud-accent to-hud-accent-hover p-8 text-white sm:p-12">
+          <section className="bg-gradient-to-br from-hud-positive to-hud-accent p-8 text-white sm:p-12">
             <p className="font-mono text-xs uppercase tracking-[0.22em] text-white/70">
               Resource Allocation Simulator
             </p>
-            <h1 className="mt-8 max-w-lg text-3xl font-bold tracking-tight sm:text-4xl">
+            <span className="mt-8 inline-flex rounded-full border border-white/35 bg-white/10 px-3 py-1 font-mono text-xs font-semibold uppercase tracking-[0.2em] text-white">
+              Instructor
+            </span>
+            <h1 className="mt-4 max-w-lg text-3xl font-bold tracking-tight sm:text-4xl">
               Manage your course environment.
             </h1>
             <p className="mt-4 max-w-md text-sm leading-6 text-white/80">
-              Instructor access connects securely to the account system.
-              Open your courses and manage their rosters in one protected
-              workspace.
+              Sign in to manage courses, rosters, student progress, and leaderboards.
             </p>
           </section>
 
           <section className="p-8 sm:p-12" aria-labelledby="instructor-login-title">
             <p className="font-mono text-xs uppercase tracking-widest text-ink-faint">
-              Instructor access
+              Instructor Account
             </p>
             <h2
               id="instructor-login-title"
               className="mt-2 text-2xl font-bold tracking-tight"
             >
-              Sign in
+              Instructor Login
             </h2>
 
             <form
@@ -136,7 +137,7 @@ export default function InstructorLoginPage() {
                 disabled={submitting}
                 className="w-full rounded-md border border-line-strong px-4 py-2.5 text-sm font-semibold text-ink-dim transition-colors hover:bg-well focus:outline-none focus-visible:ring-2 focus-visible:ring-hud-accent/30 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Back to Student Sign In
+                Are you a student? Go to Student Login
               </button>
             </form>
           </section>

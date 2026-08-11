@@ -23,13 +23,13 @@ const TOOLTIP = {
   itemStyle:  { color: '#3E5872' },
 }
 
-const SYSTEM_PARAMS = [
+export const SYSTEM_PARAMS = [
   { label: 'Server Clusters',    value: '10'          },
   { label: 'Cluster Capacity',   value: '12-20 units' },
+  { label: 'Simulation Horizon', value: '12 months'   },
   { label: 'VIP Price',          value: '$14 / unit'  },
   { label: 'Standard Price',     value: '$8 / unit'   },
   { label: 'Economy Price',      value: '$4 / unit'   },
-  { label: 'Simulation Horizon', value: '12 months'   },
 ]
 
 const KEY_INSIGHTS = [

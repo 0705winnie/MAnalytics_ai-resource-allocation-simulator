@@ -47,22 +47,25 @@ describe('InstructorLeaderboards month terminology', () => {
     getFinal.mockResolvedValue({ stage: 12, current_user_eligible: null, items: [entry] })
   })
 
-  it('uses Same-Month, Month selector values, and month revenue header', async () => {
+  it('shows Final first and selected by default', async () => {
     render(<InstructorLeaderboards course={course} />)
 
-    expect(screen.getByRole('button', { name: 'Same-Month' })).toBeTruthy()
+    const tabs = screen.getAllByRole('button')
+    expect(tabs[0].textContent).toBe('Final')
+    expect(tabs[1].textContent).toBe('Same-Month')
+    await waitFor(() => expect(getFinal).toHaveBeenCalledTimes(1))
+    expect(screen.getByText('Total Revenue (12 Months)')).toBeTruthy()
+    expect(screen.queryByRole('combobox', { name: 'Month' })).toBeNull()
+  })
+
+  it('keeps Month selector values and month revenue header on Same-Month', async () => {
+    render(<InstructorLeaderboards course={course} />)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Same-Month' }))
+
     expect(screen.getByRole('combobox', { name: 'Month' })).toBeTruthy()
     expect(screen.getByRole('option', { name: 'Month 1' })).toBeTruthy()
     expect(screen.getByRole('option', { name: 'Month 12' })).toBeTruthy()
     expect(await screen.findByText('Revenue through Month 1')).toBeTruthy()
-  })
-
-  it('uses the final 12-month revenue header', async () => {
-    render(<InstructorLeaderboards course={course} />)
-
-    await userEvent.click(screen.getByRole('button', { name: 'Final' }))
-
-    await waitFor(() => expect(getFinal).toHaveBeenCalledTimes(1))
-    expect(screen.getByText('Total Revenue (12 Months)')).toBeTruthy()
   })
 })

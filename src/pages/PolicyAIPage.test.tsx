@@ -52,6 +52,7 @@ describe('PolicyAIPage real-provider entry points', () => {
     postChat.mockResolvedValue({
       content: 'real provider response',
       provider: 'azure',
+      response_limited: false,
       usage: {
         calls_used: 1,
         calls_limit: 50,
@@ -94,5 +95,38 @@ describe('PolicyAIPage real-provider entry points', () => {
 
     expect(screen.queryByText('real provider response')).toBeNull()
     expect(screen.getByText('No messages yet. Try a suggested prompt or ask anything.')).toBeTruthy()
+  })
+
+  it('shows informational policy tips without the old checklist state UI and keeps Params available', () => {
+    render(<Harness />)
+
+    expect(screen.getByText('Policy Design Tips')).toBeTruthy()
+    expect(screen.queryByText('Design Checklist')).toBeNull()
+    expect(screen.getByText('Return `0` when no cluster has sufficient capacity.')).toBeTruthy()
+    expect(screen.getByText('Consider load-aware routing instead of always choosing the same cluster.')).toBeTruthy()
+    expect(screen.getByText('Parameters')).toBeTruthy()
+    expect(screen.getByRole('button', { name: /add parameter/i })).toBeTruthy()
+  })
+
+  it('explains when the provider stops a response at the technical length ceiling', async () => {
+    postChat.mockResolvedValueOnce({
+      content: 'partial code',
+      provider: 'azure',
+      response_limited: true,
+      usage: {
+        calls_used: 1,
+        calls_limit: 50,
+        resets_at: '2026-08-12T00:00:00-07:00',
+        metered: true,
+      },
+    })
+    render(<Harness />)
+
+    await userEvent.click(screen.getByRole('button', {
+      name: 'Help me write a type-priority routing rule in Python.',
+    }))
+
+    expect(await screen.findByText('partial code')).toBeTruthy()
+    expect(screen.getByText('Response reached the length limit. Ask the AI to continue.')).toBeTruthy()
   })
 })

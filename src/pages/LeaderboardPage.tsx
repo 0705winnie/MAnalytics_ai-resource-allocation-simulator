@@ -192,7 +192,7 @@ export default function LeaderboardPage({ nickname, session }: Props) {
     <div className="space-y-8">
       <div className="rounded-xl border border-line bg-gradient-to-br from-white via-white to-hud-accent/6 p-8 shadow-card">
         <span className="mb-5 inline-block rounded-full border border-line-strong px-2.5 py-1 font-mono text-xs uppercase tracking-widest text-ink-faint">
-          04 History
+          04 History &amp; Leaderboards
         </span>
         <h1 className="mb-3 text-2xl font-bold tracking-tight text-ink">Official Simulation History</h1>
         <p className="max-w-3xl text-sm leading-relaxed text-ink-dim">

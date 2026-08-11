@@ -21,6 +21,7 @@ export interface AssistantRequest {
 export interface AssistantResponse {
   content: string
   provider: 'azure'
+  response_limited: boolean
   usage: AssistantUsage
 }
 

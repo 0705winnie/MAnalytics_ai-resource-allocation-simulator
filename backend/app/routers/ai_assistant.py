@@ -81,6 +81,7 @@ class AssistantUsageResponse(BaseModel):
 class AssistantResponse(BaseModel):
     content: str
     provider: Literal["azure"]
+    response_limited: bool
     usage: AssistantUsageResponse
 
 
@@ -153,7 +154,7 @@ def chat(
             message=request.message,
             history=history,
             context=student_context,
-            max_output_tokens=settings.max_llm_output_tokens_per_call,
+            max_output_tokens=settings.llm_output_token_safety_ceiling,
         )
     except LLMConfigurationError as exc:
         logger.error(
@@ -195,7 +196,7 @@ def chat(
             message=request.message,
             history=history,
             context=student_context,
-            max_output_tokens=settings.max_llm_output_tokens_per_call,
+            max_output_tokens=settings.llm_output_token_safety_ceiling,
         )
     except LLMProviderError as exc:
         logger.error(
@@ -242,5 +243,6 @@ def chat(
     return AssistantResponse(
         content=result.content,
         provider="azure",
+        response_limited=result.finish_reason == "length",
         usage=AssistantUsageResponse.from_status(current_usage),
     )

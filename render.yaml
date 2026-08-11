@@ -25,8 +25,9 @@ services:
         value: "50"
       - key: MAX_LLM_INPUT_TOKENS_PER_DAY
         value: "100000"
-      - key: MAX_LLM_OUTPUT_TOKENS_PER_CALL
-        value: "500"
+      # Provider runaway safeguard, separate from the daily student quotas.
+      - key: LLM_OUTPUT_TOKEN_SAFETY_CEILING
+        value: "4000"
       - key: MAX_LLM_ESTIMATED_COST_PER_DAY
         value: "0.25"
       - key: LLM_USAGE_TIMEZONE
