@@ -1,6 +1,6 @@
 """Make Student accounts course-specific while keeping Instructors global.
 
-Revision ID: 0006_course_scoped_student_accounts
+Revision ID: 0006_course_scoped_students
 Revises: 0005_llm_daily_usage
 """
 
@@ -11,7 +11,7 @@ from alembic import op
 import sqlalchemy as sa
 
 
-revision: str = "0006_course_scoped_student_accounts"
+revision: str = "0006_course_scoped_students"
 down_revision: str | None = "0005_llm_daily_usage"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None

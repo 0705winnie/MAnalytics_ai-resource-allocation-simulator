@@ -207,9 +207,9 @@ It does not serialize the stored Remaining Capacity snapshot. A focused test ass
 
 ## S. Migration revision created
 
-- Revision: `0006_course_scoped_student_accounts`
+- Revision: `0006_course_scoped_students`
 - Parent: `0005_llm_daily_usage`
-- `alembic heads`: `0006_course_scoped_student_accounts (head)`
+- `alembic heads`: `0006_course_scoped_students (head)`
 - Number of heads: one
 
 Downgrade is guarded. It succeeds only while usernames and Course Codes can still satisfy the old global uniqueness rules. Once course-specific duplicate usernames or repeated Course Codes exist, it refuses rather than silently merging accounts, choosing a password, or losing course identity.
