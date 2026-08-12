@@ -17,19 +17,29 @@ describe('persisted Simulation History and real leaderboards', () => {
     getSameStageLeaderboard.mockReset()
     getFinalLeaderboard.mockReset()
   })
-  it('shows ordered official monthly results and the authenticated nickname', () => {
+  it('shows ordered official monthly results in unified expandable month items', async () => {
     const monthOne = officialMonth(1, { policy_hash: 'same', warnings: ['warning one'] })
     const monthTwo = officialMonth(2, { policy_hash: 'same' })
     const session = officialSession(2, { monthly_results: [monthTwo, monthOne] })
     render(<LeaderboardPage nickname="Course Nickname" session={session} />)
 
     expect(screen.getByText('Course Nickname')).toBeTruthy()
-    const rows = screen.getAllByRole('row') as HTMLTableRowElement[]
-    expect(rows[1].cells[0].textContent).toBe('1')
-    expect(within(rows[1]).getByText('$1,000')).toBeTruthy()
-    expect(rows[2].cells[0].textContent).toBe('2')
-    expect(within(rows[2]).getByText('Unchanged')).toBeTruthy()
-    expect(screen.getByText('warning one')).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'History & Leaderboards' })).toBeTruthy()
+    const monthHeadings = screen.getAllByRole('heading', { level: 3 })
+    expect(monthHeadings.map((heading) => heading.textContent)).toEqual(['Month 1', 'Month 2'])
+
+    const monthOneDetails = monthHeadings[0].closest('details') as HTMLDetailsElement
+    const monthTwoDetails = monthHeadings[1].closest('details') as HTMLDetailsElement
+    expect(within(monthOneDetails).getByText('$1,000')).toBeTruthy()
+    expect(within(monthTwoDetails).getByText('Unchanged')).toBeTruthy()
+    expect(monthOneDetails.open).toBe(false)
+
+    await userEvent.click(within(monthOneDetails).getByText('Show details'))
+    expect(monthOneDetails.open).toBe(true)
+    expect(within(monthOneDetails).getByText('VIP:')).toBeTruthy()
+    expect(within(monthOneDetails).getByText('Average')).toBeTruthy()
+    expect(within(monthOneDetails).getByText('Peak')).toBeTruthy()
+    expect(within(monthOneDetails).getByText('warning one')).toBeTruthy()
   })
 
   it('marks a changed policy by comparing adjacent persisted hashes', () => {
@@ -48,6 +58,7 @@ describe('persisted Simulation History and real leaderboards', () => {
   it('keeps full policy source collapsed behind View Policy Used', async () => {
     const session = officialSession(1)
     render(<LeaderboardPage nickname="Student" session={session} />)
+    await userEvent.click(screen.getByText('Show details'))
     const policyDetails = screen.getByText('View Policy Used').closest('details') as HTMLDetailsElement
 
     expect(policyDetails.open).toBe(false)

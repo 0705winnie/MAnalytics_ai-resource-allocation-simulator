@@ -11,7 +11,7 @@ interface Props {
 
 export const TABS: { page: Page; label: string }[] = [
   { page: 1, label: '01  Introduction' },
-  { page: 2, label: '02  Policy & AI' },
+  { page: 2, label: '02  Policy' },
   { page: 3, label: '03  Simulation' },
   { page: 4, label: '04  History & Leaderboards' },
 ]
@@ -38,17 +38,49 @@ export default function NavBar({ currentPage, onNavigate }: Props) {
 
   return (
     <header className="border-b border-line bg-white shadow-card">
-      <div className="max-w-6xl mx-auto px-6 flex min-h-14 flex-wrap items-center gap-x-6 gap-y-2 py-2 lg:flex-nowrap lg:py-0">
-        <span className="text-xs font-mono tracking-widest text-ink-faintest uppercase shrink-0">
-          Resource Allocation Simulator
-        </span>
-        <nav className="order-3 flex h-12 w-full overflow-x-auto lg:order-none lg:w-auto lg:flex-1">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6">
+        <div className="flex min-h-14 items-center gap-3">
+          <span className="hidden shrink-0 font-mono text-xs uppercase tracking-widest text-ink-faintest xl:inline">
+            Resource Allocation Simulator
+          </span>
+          <nav aria-label="Student pages" className="hidden min-w-0 flex-1 self-stretch overflow-x-auto md:flex">
+            {TABS.map(({ page, label }) => (
+              <button
+                key={page}
+                onClick={() => onNavigate(page)}
+                className={[
+                  'h-full shrink-0 whitespace-nowrap border-b-2 px-2.5 text-xs font-medium tracking-wide transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-hud-accent/50 focus-visible:ring-inset lg:px-4 lg:text-sm',
+                  currentPage === page
+                    ? 'border-hud-accent text-hud-accent'
+                    : 'border-transparent text-ink-faint hover:text-ink-dim',
+                ].join(' ')}
+              >
+                {label}
+              </button>
+            ))}
+          </nav>
+          <div className="ml-auto flex min-w-0 shrink-0 items-center gap-2 sm:gap-3">
+            <div className="min-w-0 max-w-44 text-right">
+              <p className="truncate text-sm font-semibold text-ink">{nickname}</p>
+              <p className="truncate font-mono text-[11px] text-ink-faint">{course?.course_identifier}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => void handleSignOut()}
+              disabled={signingOut}
+              className="shrink-0 rounded-md border border-line-strong px-3 py-1.5 text-xs font-semibold text-ink-dim transition-colors hover:bg-well focus:outline-none focus-visible:ring-2 focus-visible:ring-hud-accent/30 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {signingOut ? 'Signing out…' : 'Sign Out'}
+            </button>
+          </div>
+        </div>
+        <nav aria-label="Student pages" className="flex h-11 overflow-x-auto border-t border-line md:hidden">
           {TABS.map(({ page, label }) => (
             <button
               key={page}
               onClick={() => onNavigate(page)}
               className={[
-                'px-5 h-full text-sm font-medium tracking-wide border-b-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-hud-accent/50 focus-visible:ring-inset',
+                'h-full shrink-0 whitespace-nowrap border-b-2 px-3 text-xs font-medium tracking-wide transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-hud-accent/50 focus-visible:ring-inset',
                 currentPage === page
                   ? 'border-hud-accent text-hud-accent'
                   : 'border-transparent text-ink-faint hover:text-ink-dim',
@@ -58,23 +90,9 @@ export default function NavBar({ currentPage, onNavigate }: Props) {
             </button>
           ))}
         </nav>
-        <div className="ml-auto flex min-w-0 items-center gap-3">
-          <div className="min-w-0 text-right">
-            <p className="truncate text-sm font-semibold text-ink">{nickname}</p>
-            <p className="truncate font-mono text-[11px] text-ink-faint">{course?.course_identifier}</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => void handleSignOut()}
-            disabled={signingOut}
-            className="shrink-0 rounded-md border border-line-strong px-3 py-1.5 text-xs font-semibold text-ink-dim transition-colors hover:bg-well focus:outline-none focus-visible:ring-2 focus-visible:ring-hud-accent/30 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {signingOut ? 'Signing out…' : 'Sign Out'}
-          </button>
-        </div>
       </div>
       {signOutError && (
-        <p className="max-w-6xl mx-auto px-6 pb-2 text-right text-xs text-red-700" role="alert">
+        <p className="mx-auto max-w-7xl px-4 pb-2 text-right text-xs text-red-700 sm:px-6" role="alert">
           {signOutError}
         </p>
       )}

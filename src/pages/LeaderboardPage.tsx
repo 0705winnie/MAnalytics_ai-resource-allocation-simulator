@@ -50,35 +50,87 @@ function PolicySnapshot({ result }: { result: OfficialMonthlyResult }) {
   )
 }
 
-function MonthDetails({ result }: { result: OfficialMonthlyResult }) {
+function UtilizationValues({ values }: { values: Record<string, number> }) {
   return (
-    <details className="border-b border-line px-3 py-3">
-      <summary className="cursor-pointer text-xs font-medium text-ink-dim">
-        More Month {result.month} details
+    <div className="flex flex-wrap gap-x-4 gap-y-1 font-mono text-xs text-ink-dim">
+      {Object.entries(values).map(([key, value]) => (
+        <span key={key}>Cluster {key}: {Math.round(value * 100)}%</span>
+      ))}
+    </div>
+  )
+}
+
+function MonthHistoryItem({
+  result,
+  policyStatus,
+}: {
+  result: OfficialMonthlyResult
+  policyStatus: string
+}) {
+  const summaryFields = [
+    ['Completed at', formatDate(result.completed_at)],
+    ['Revenue', formatMoney(result.total_revenue)],
+    ['Requests', result.total_requests],
+    ['Admitted', result.admitted_requests],
+    ['Rejected', result.rejected_requests],
+    ['Completed', result.completed_requests],
+    ['Unfinished', result.unfinished_requests],
+    ['Warnings', result.warnings.length],
+    ['Policy', policyStatus],
+  ]
+
+  return (
+    <details className="group rounded-lg border border-line bg-white shadow-sm">
+      <summary className="cursor-pointer list-none p-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-hud-accent/40 sm:p-5 [&::-webkit-details-marker]:hidden">
+        <div className="flex items-center justify-between gap-4">
+          <h3 className="text-base font-semibold text-ink">Month {result.month}</h3>
+          <span className="shrink-0 text-xs font-semibold text-hud-accent">
+            <span className="group-open:hidden">Show details</span>
+            <span className="hidden group-open:inline">Hide details</span>
+            <span aria-hidden="true" className="ml-1 inline-block transition-transform group-open:rotate-180">⌄</span>
+          </span>
+        </div>
+        <dl className="mt-4 grid grid-cols-2 gap-x-5 gap-y-4 sm:grid-cols-3 lg:grid-cols-5">
+          {summaryFields.map(([label, value]) => (
+            <div key={label} className="min-w-0">
+              <dt className="text-[11px] font-semibold uppercase tracking-wide text-ink-faint">{label}</dt>
+              <dd className={`mt-1 truncate text-xs text-ink-dim ${label === 'Completed at' || label === 'Policy' ? 'font-sans' : 'font-mono'} ${label === 'Revenue' ? 'font-semibold text-ink' : ''}`}>
+                {value}
+              </dd>
+            </div>
+          ))}
+        </dl>
       </summary>
-      <div className="mt-4 grid gap-5 md:grid-cols-2">
-        <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-faint">By type</p>
-          <div className="space-y-1 text-xs text-ink-dim">
+
+      <div className="space-y-6 border-t border-line px-4 py-5 sm:px-5">
+        <section aria-labelledby={`month-${result.month}-by-type`}>
+          <h4 id={`month-${result.month}-by-type`} className="mb-3 text-xs font-semibold uppercase tracking-wide text-ink-faint">By type</h4>
+          <div className="space-y-2 text-sm text-ink-dim">
             {result.by_type.map((row) => (
-              <p key={row.type} className="flex items-center justify-between gap-3">
-                <span className="capitalize">{row.type}</span>
+              <p key={row.type}>
+                <span className="font-medium capitalize text-ink">{row.type}:</span>{' '}
                 <span className="font-mono">{formatMoney(row.total_revenue)}</span>
               </p>
             ))}
           </div>
-        </div>
-        <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-faint">Utilization</p>
-          <p className="font-mono text-xs text-ink-dim">
-            Average: {Object.values(result.avg_utilization).map((value) => `${Math.round(value * 100)}%`).join(' · ')}
-          </p>
-          <p className="mt-1 font-mono text-xs text-ink-dim">
-            Peak: {Object.values(result.peak_utilization).map((value) => `${Math.round(value * 100)}%`).join(' · ')}
-          </p>
-        </div>
-        <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-faint">Warnings</p>
+        </section>
+
+        <section className="border-t border-line pt-5" aria-labelledby={`month-${result.month}-utilization`}>
+          <h4 id={`month-${result.month}-utilization`} className="mb-3 text-xs font-semibold uppercase tracking-wide text-ink-faint">Utilization</h4>
+          <div className="space-y-4 rounded-md bg-well/60 p-4">
+            <div>
+              <p className="mb-1.5 text-xs font-semibold text-ink">Average</p>
+              <UtilizationValues values={result.avg_utilization} />
+            </div>
+            <div>
+              <p className="mb-1.5 text-xs font-semibold text-ink">Peak</p>
+              <UtilizationValues values={result.peak_utilization} />
+            </div>
+          </div>
+        </section>
+
+        <section className="border-t border-line pt-5" aria-labelledby={`month-${result.month}-warnings`}>
+          <h4 id={`month-${result.month}-warnings`} className="mb-3 text-xs font-semibold uppercase tracking-wide text-ink-faint">Warnings</h4>
           {result.warnings.length === 0 ? (
             <p className="text-xs text-ink-faint">None</p>
           ) : (
@@ -86,9 +138,11 @@ function MonthDetails({ result }: { result: OfficialMonthlyResult }) {
               {result.warnings.map((warning, index) => <li key={`${index}-${warning}`}>{warning}</li>)}
             </ul>
           )}
-        </div>
+        </section>
       </div>
-      <PolicySnapshot result={result} />
+      <div className="px-4 pb-5 sm:px-5">
+        <PolicySnapshot result={result} />
+      </div>
     </details>
   )
 }
@@ -186,10 +240,10 @@ export default function LeaderboardPage({ nickname, session }: Props) {
         <span className="mb-5 inline-block rounded-full border border-line-strong px-2.5 py-1 font-mono text-xs uppercase tracking-widest text-ink-faint">
           04 History &amp; Leaderboards
         </span>
-        <h1 className="mb-3 text-2xl font-bold tracking-tight text-ink">Official Simulation History</h1>
+        <h1 className="mb-3 text-2xl font-bold tracking-tight text-ink">History &amp; Leaderboards</h1>
         <p className="max-w-3xl text-sm leading-relaxed text-ink-dim">
-          <strong>{nickname}</strong>, these results are restored from your official course session.
-          Each completed month is saved automatically.
+          <strong>{nickname}</strong>, review the monthly results restored from your official course session
+          and compare your progress on the course leaderboards.
         </p>
       </div>
 
@@ -226,47 +280,17 @@ export default function LeaderboardPage({ nickname, session }: Props) {
               No official months have been completed yet. Run Month 1 on Page 03 to begin.
             </p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="border-b border-line text-left text-ink-faint">
-                    <th className="py-2 pr-4 font-medium">Month</th>
-                    <th className="py-2 pr-4 font-medium">Completed at</th>
-                    <th className="py-2 pr-4 font-medium">Revenue</th>
-                    <th className="py-2 pr-4 font-medium">Requests</th>
-                    <th className="py-2 pr-4 font-medium">Admitted</th>
-                    <th className="py-2 pr-4 font-medium">Rejected</th>
-                    <th className="py-2 pr-4 font-medium">Completed</th>
-                    <th className="py-2 pr-4 font-medium">Unfinished</th>
-                    <th className="py-2 pr-4 font-medium">Warnings</th>
-                    <th className="py-2 pr-4 font-medium">Policy</th>
-                  </tr>
-                </thead>
-                <tbody className="font-mono text-ink-dim">
-                  {results.map((result, index) => {
-                    const changed = index > 0 && results[index - 1].policy_hash !== result.policy_hash
-                    return (
-                      <tr key={result.month} className="border-b border-line align-top">
-                        <td className="py-3 pr-4">{result.month}</td>
-                        <td className="whitespace-nowrap py-3 pr-4 font-sans">{formatDate(result.completed_at)}</td>
-                        <td className="py-3 pr-4 text-ink">{formatMoney(result.total_revenue)}</td>
-                        <td className="py-3 pr-4">{result.total_requests}</td>
-                        <td className="py-3 pr-4">{result.admitted_requests}</td>
-                        <td className="py-3 pr-4">{result.rejected_requests}</td>
-                        <td className="py-3 pr-4">{result.completed_requests}</td>
-                        <td className="py-3 pr-4">{result.unfinished_requests}</td>
-                        <td className="py-3 pr-4">{result.warnings.length}</td>
-                        <td className="whitespace-nowrap py-3 pr-4 font-sans">
-                          {index === 0 ? 'Initial policy' : changed ? 'Changed' : 'Unchanged'}
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-              <div>
-                {results.map((result) => <MonthDetails key={result.month} result={result} />)}
-              </div>
+            <div className="space-y-3">
+              {results.map((result, index) => {
+                const changed = index > 0 && results[index - 1].policy_hash !== result.policy_hash
+                return (
+                  <MonthHistoryItem
+                    key={result.month}
+                    result={result}
+                    policyStatus={index === 0 ? 'Initial policy' : changed ? 'Changed' : 'Unchanged'}
+                  />
+                )
+              })}
             </div>
           )}
         </SectionCard>

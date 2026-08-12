@@ -371,10 +371,13 @@ export default function InstructorRosterImportPage() {
                 Download the result now; activation codes are provided only for
                 newly created enrollments.
               </p>
-              <p className="mt-2 text-sm font-semibold text-emerald-950">
-                Send students their Berkeley Username, Course ID, and Activation Code together.
-                Students need all three items to identify and activate the correct course-specific account.
-              </p>
+              <div className="mt-5 rounded-md border border-amber-300 bg-amber-50 p-4 text-sm leading-6 text-amber-950" role="note">
+                <p className="font-semibold">Course account information</p>
+                <p className="mt-1">
+                  Send students their Berkeley Username, Course ID, and Activation Code together.
+                  Students need all three items to identify and activate the correct course-specific account.
+                </p>
+              </div>
 
               <dl className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {[

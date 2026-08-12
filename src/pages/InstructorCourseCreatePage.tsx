@@ -96,9 +96,12 @@ export default function InstructorCourseCreatePage() {
         Course management
       </p>
       <h1 className="mt-2 text-3xl font-bold tracking-tight">Create Course</h1>
-      <p className="mt-2 text-sm leading-6 text-ink-dim">
-        The combination of Course Code and Semester must be unique across the system.
-      </p>
+      <div className="mt-4 max-w-3xl rounded-md border border-amber-300 bg-amber-50 p-4 text-sm leading-6 text-amber-950" role="note">
+        <p className="font-semibold">Unique course identifier required</p>
+        <p className="mt-1">
+          The combination of Course Code and Semester must be unique across the system.
+        </p>
+      </div>
 
       <form
         onSubmit={(event) => void handleSubmit(event)}

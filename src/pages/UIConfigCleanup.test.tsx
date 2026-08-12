@@ -31,6 +31,7 @@ describe('approved UI/config cleanup', () => {
   })
 
   it('renames the fourth student navigation page', () => {
+    expect(TABS.find(({ page }) => page === 2)?.label).toBe('02  Policy')
     expect(TABS.find(({ page }) => page === 4)?.label).toBe('04  History & Leaderboards')
     expect(TABS.some(({ label }) => label === '04  History')).toBe(false)
   })
